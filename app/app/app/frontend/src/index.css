@@ -1,0 +1,88 @@
+"@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@import url('https://fonts.googleapis.com/css2?family=Chivo:wght@400;700;900&family=IBM+Plex+Mono:wght@400;500;600;700&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap');
+
+body {
+  margin: 0;
+  font-family: 'IBM Plex Sans', system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  background: #ffffff;
+  color: #050505;
+}
+
+.font-display { font-family: 'Chivo', sans-serif; letter-spacing: -0.01em; }
+.font-mono-pi { font-family: 'IBM Plex Mono', monospace; }
+
+@layer base {
+  :root {
+    --background: 0 0% 100%;
+    --foreground: 0 0% 2%;
+    --card: 0 0% 100%;
+    --card-foreground: 0 0% 2%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 0 0% 2%;
+    --primary: 0 0% 5%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 0 0% 96%;
+    --secondary-foreground: 0 0% 5%;
+    --muted: 0 0% 96%;
+    --muted-foreground: 0 0% 35%;
+    --accent: 0 0% 92%;
+    --accent-foreground: 0 0% 5%;
+    --destructive: 0 84% 50%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 0 0% 88%;
+    --input: 0 0% 88%;
+    --ring: 218 100% 33%;
+    --radius: 0rem;
+  }
+}
+
+@layer base {
+  * { border-color: hsl(var(--border)); }
+  body { background-color: hsl(var(--background)); color: hsl(var(--foreground)); }
+}
+
+/* Strip ALL radii from shadcn primitives for Swiss/terminal aesthetic */
+button, input, select, textarea, [role=\"dialog\"], [data-radix-popper-content-wrapper] > *,
+.rounded, .rounded-sm, .rounded-md, .rounded-lg, .rounded-xl, .rounded-2xl, .rounded-full {
+  border-radius: 0 !important;
+}
+
+/* leaflet sizing & monochrome */
+.leaflet-container { background: #f7f7f7; font-family: 'IBM Plex Sans', sans-serif; }
+.leaflet-tile { filter: grayscale(0.5) contrast(1.05); }
+.leaflet-popup-content-wrapper, .leaflet-popup-tip { border-radius: 0 !important; background: #fff; box-shadow: 0 0 0 1px #0a0a0a; }
+.leaflet-popup-content { margin: 8px 12px; font-size: 12px; }
+
+/* terminal panel */
+.terminal-panel { background: #0a0a0a; color: #ffffff; border: 1px solid #333; }
+.terminal-panel .neon { color: #39ff14; font-family: 'IBM Plex Mono', monospace; }
+
+/* label style */
+.label-xs {
+  font-size: 10px;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  font-weight: 700;
+  color: #525252;
+}
+
+/* hide scrollbar slightly */
+::-webkit-scrollbar { width: 8px; height: 8px; }
+::-webkit-scrollbar-thumb { background: #d4d4d4; }
+::-webkit-scrollbar-track { background: #f7f7f7; }
+
+[data-debug-wrapper=\"true\"] { display: contents !important; }
+[data-debug-wrapper=\"true\"] > * {
+  margin-left: inherit; margin-right: inherit; margin-top: inherit; margin-bottom: inherit;
+  padding-left: inherit; padding-right: inherit; padding-top: inherit; padding-bottom: inherit;
+  column-gap: inherit; row-gap: inherit; gap: inherit;
+  border-left-width: inherit; border-right-width: inherit; border-top-width: inherit; border-bottom-width: inherit;
+  border-left-style: inherit; border-right-style: inherit; border-top-style: inherit; border-bottom-style: inherit;
+  border-left-color: inherit; border-right-color: inherit; border-top-color: inherit; border-bottom-color: inherit;
+}
+"
