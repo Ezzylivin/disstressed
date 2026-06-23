@@ -1,0 +1,85 @@
+/* --- Core Viewport Containment --- */
+#root {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+  width: 100%;
+  overflow-x: hidden;
+}
+
+/* --- Route Layout Enclosures --- */
+/* Center-aligned structure for LoginPage and RegisterPage */
+.auth-view-wrapper {
+  min-height: 100vh;
+  width: 100vw;
+  display: flex;
+  align-items: center;
+  justify-center: center;
+  background-color: hsl(var(--background));
+  padding: 1.5rem;
+}
+
+/* Master framework container for Dashboard, Lists, and Property Detail views */
+.app-terminal-layout {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+  width: 100%;
+  background-color: hsl(var(--background));
+}
+
+/* --- Brutalist Structural Components --- */
+/* Stark, high-contrast panels for property data widgets */
+.brutalist-grid-panel {
+  border: 1px solid hsl(var(--border));
+  background-color: hsl(var(--card));
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.brutalist-grid-panel:hover {
+  transform: translate(-2px, -2px);
+  box-shadow: 4px 4px 0px 0px hsl(var(--foreground));
+}
+
+/* High-contrast divider lines across property metrics rows */
+.terminal-divider {
+  border-top: 1px dashed hsl(var(--border));
+  width: 100%;
+  margin: 1rem 0;
+}
+
+/* --- Interactive Elements & Navigation Hooks --- */
+/* Sidebar routing links active states */
+.nav-terminal-item {
+  position: relative;
+  display: flex;
+  align-items: center;
+  padding: 0.5rem 1rem;
+  border: 1px solid transparent;
+}
+
+.nav-terminal-item.active {
+  background-color: hsl(var(--primary));
+  color: hsl(var(--primary-foreground));
+  border-color: hsl(var(--primary));
+}
+
+/* --- Loading States & Terminal Micro-Animations --- */
+/* Custom terminal blinker effect for your "Authenticating..." and "Loading..." screens */
+.font-mono-pi::after {
+  content: " _";
+  animation: terminal-blink 1s steps(2, start) infinite;
+}
+
+@keyframes terminal-blink {
+  to {
+    visibility: hidden;
+  }
+}
+
+/* --- Sonner Global Toast Adjustments --- */
+/* Forces sonner notification containers to adhere to your strict typography architecture */
+.sonner-toast-override {
+  font-family: 'IBM Plex Mono', monospace !important;
+  box-shadow: 4px 4px 0px 0px rgba(0, 0, 0, 1) !important;
+}
