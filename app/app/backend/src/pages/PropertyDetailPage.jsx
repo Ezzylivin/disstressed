@@ -1,4 +1,4 @@
-"import { useEffect, useState } from \"react\";
+import { useEffect, useState } from \"react\";
 import { useParams, useNavigate } from \"react-router-dom\";
 import { api, fmtMoney, fmtNum } from \"@/lib/api\";
 import { AppShell } from \"@/components/AppShell\";
@@ -224,4 +224,4 @@ export default function PropertyDetailPage() {
     </AppShell>
   );
 }
-"
+
