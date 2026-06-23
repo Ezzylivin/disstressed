@@ -1,4 +1,4 @@
-"import { useEffect, useState, useMemo } from \"react\";
+import { useEffect, useState, useMemo } from \"react\";
 import { useNavigate } from \"react-router-dom\";
 import { api, fmtMoney } from \"@/lib/api\";
 import { AppShell } from \"@/components/AppShell\";
@@ -190,4 +190,4 @@ const KPI = ({ label, value, accent, testid }) => (
     <div className={`font-mono-pi text-xl font-semibold ${accent || \"\"}`}>{value ?? \"—\"}</div>
   </div>
 );
-"
+
