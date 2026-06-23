@@ -1,4 +1,4 @@
-"import { useEffect, useState } from \"react\";
+import { useEffect, useState } from \"react\";
 import { Link } from \"react-router-dom\";
 import { api, fmtMoney } from \"@/lib/api\";
 import { AppShell } from \"@/components/AppShell\";
@@ -158,4 +158,4 @@ export default function ListsPage() {
     </AppShell>
   );
 }
-"
+
