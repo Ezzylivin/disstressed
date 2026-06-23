@@ -1,4 +1,4 @@
-"@tailwind base;
+@tailwind base;
 @tailwind components;
 @tailwind utilities;
 
@@ -85,4 +85,3 @@ button, input, select, textarea, [role=\"dialog\"], [data-radix-popper-content-w
   border-left-style: inherit; border-right-style: inherit; border-top-style: inherit; border-bottom-style: inherit;
   border-left-color: inherit; border-right-color: inherit; border-top-color: inherit; border-bottom-color: inherit;
 }
-"
