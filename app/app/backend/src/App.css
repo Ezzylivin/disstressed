@@ -83,3 +83,160 @@
   font-family: 'IBM Plex Mono', monospace !important;
   box-shadow: 4px 4px 0px 0px rgba(0, 0, 0, 1) !important;
 }
+
+@import url('https://fonts.googleapis.com/css2?family=Urbanist:wght@400;700;900&family=IBM+Plex+Mono:wght@400;500;700&display=swap');
+
+/* ==========================================
+   1. UNIFIED TERMINAL INPUTS & CHECKBOXES
+   ========================================== */
+/* Sidebar inputs and select dropdowns */
+input[type="text"], 
+input[type="password"], 
+select {
+  background-color: #0d0d0d !important;
+  border: 1px solid #222222 !important;
+  color: #ffffff !important;
+  font-family: 'IBM Plex Mono', monospace !important;
+  font-size: 11px !important;
+  padding: 10px 12px !important;
+  border-radius: 0px !important;
+  transition: all 0.15s ease-in-out;
+}
+
+input[type="text"]:focus, 
+select:focus {
+  border-color: #DEFF9A !important;
+  box-shadow: 0 0 10px rgba(222, 255, 154, 0.1) !important;
+  outline: none;
+}
+
+/* Custom Tactical Checkboxes (Fixes misaligned sidebar lists) */
+input[type="checkbox"] {
+  appearance: none;
+  -webkit-appearance: none;
+  width: 14px;
+  height: 14px;
+  border: 1px solid #333333;
+  background-color: #000000;
+  cursor: pointer;
+  display: inline-grid;
+  place-content: center;
+  border-radius: 0px;
+  transition: all 0.1s ease-in-out;
+}
+
+input[type="checkbox"]:checked {
+  background-color: #DEFF9A;
+  border-color: #DEFF9A;
+}
+
+input[type="checkbox"]:checked::before {
+  content: "";
+  width: 6px;
+  height: 6px;
+  background-color: #000000;
+}
+
+/* Custom Range Sliders */
+input[type="range"] {
+  -webkit-appearance: none;
+  appearance: none;
+  background: #222;
+  height: 4px;
+  border-radius: 0px;
+}
+
+input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 12px;
+  height: 12px;
+  background: #00A3FF;
+  cursor: pointer;
+  border-radius: 0px;
+}
+
+/* ==========================================
+   2. BUTTON MATRIX OVERHAUL
+   ========================================== */
+/* Global Action Buttons (Clear, Export, List, Tracing) */
+button, 
+.btn-terminal {
+  background-color: #0a0a0a;
+  border: 1px solid #333333 !important;
+  color: #ffffff !important;
+  font-family: 'IBM Plex Mono', monospace !important;
+  font-size: 10px !important;
+  font-weight: 700 !important;
+  text-transform: uppercase !important;
+  letter-spacing: 0.1em !important;
+  padding: 10px 16px !important;
+  border-radius: 0px !important;
+  cursor: pointer;
+  transition: all 0.15s ease-in-out;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* Premium Primary Accents (e.g., Save, Execute, Ingest) */
+button.accent-lime,
+.btn-action-lime {
+  background-color: #DEFF9A !important;
+  color: #000000 !important;
+  border: 1px solid #DEFF9A !important;
+}
+
+button.accent-lime:hover,
+.btn-action-lime:hover {
+  background-color: #ffffff !important;
+  border-color: #ffffff !important;
+  color: #000000 !important;
+  box-shadow: 0 0 15px rgba(255, 255, 255, 0.2);
+}
+
+/* Secondary Actions / Outlines (e.g., Clear All) */
+button:hover {
+  border-color: #00A3FF !important;
+  color: #00A3FF !important;
+  background-color: rgba(0, 163, 255, 0.05);
+}
+
+/* ==========================================
+   3. UNDERWRITING PROFILE SCREEN DARK SKIN
+   ========================================== */
+/* Forces the plain white property sub-pages into the terminal aesthetic */
+.underwriting-panel-wrapper, 
+.property-details-container {
+  background-color: #000000 !important;
+  color: #ffffff !important;
+}
+
+.underwriting-table, 
+table.data-matrix {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 1rem;
+}
+
+.underwriting-table th {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 10px;
+  text-transform: uppercase;
+  color: #666666;
+  border-bottom: 1px solid #222222;
+  padding: 8px 12px;
+}
+
+.underwriting-table td {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 12px;
+  border-bottom: 1px solid #111111;
+  padding: 10px 12px;
+  color: #e5e5e5;
+}
+
+.underwriting-table tr:hover td {
+  background-color: #050505;
+  color: #DEFF9A;
+}
