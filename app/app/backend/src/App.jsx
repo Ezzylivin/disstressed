@@ -7,6 +7,7 @@ import DashboardPage from "./pages/DashboardPage";
 import PropertyDetailPage from "./pages/PropertyDetailPage";
 import ListsPage from "./pages/ListsPage";
 import { Toaster } from "sonner";
+import ImportPage from "./pages/ImportPage";
 
 const Protected = ({ children }) => {
   const { user } = useAuth();
@@ -34,6 +35,7 @@ function App() {
           <Route path="/dashboard" element={<Protected><DashboardPage/></Protected>}/>
           <Route path="/property/:id" element={<Protected><PropertyDetailPage/></Protected>}/>
           <Route path="/lists" element={<Protected><ListsPage/></Protected>}/>
+          <Route path="/import" element={<ImportPage />} />
         </Routes>
       </AuthProvider>
     </BrowserRouter>
