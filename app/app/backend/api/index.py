@@ -28,11 +28,11 @@ except ImportError:
 import bcrypt
 import jwt
 import requests  # Outbound driver for premium API lookup orchestration
-from fastapi import FastAPI, APIRouter, HTTPException, Request, Response, Depends, Field
+from fastapi import FastAPI, APIRouter, HTTPException, Request, Response, Depends
 from fastapi.responses import StreamingResponse
 from starlette.middleware.cors import CORSMiddleware
 from motor.motor_asyncio import AsyncIOMotorClient
-from pydantic import BaseModel, EmailStr
+from pydantic import BaseModel, EmailStr, Field
 
 # Core App Module Imports
 from seed_data import generate_properties
