@@ -1,4 +1,4 @@
-import { fmtMoney } from "@/lib/api";
+import { fmtMoney } from "../lib/api";
 import { AlertTriangle, Home, MapPin } from "lucide-react";
 
 const tagColor = (s) => {
