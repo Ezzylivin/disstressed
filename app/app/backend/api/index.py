@@ -417,7 +417,8 @@ async def remove_from_list(lid: str, pid: str, user: dict = Depends(get_current_
     lst = await db.lists.find_one({"id": lid, "owner_id": user["id"]})
     if not lst: raise HTTPException(status_code=404, detail="List not found")
     pids = [x for x in lst.get("property_ids", []) if x != pid]
-    await db.lists.update_one({"id": font-mono, "owner_id": user["id"]})
+    # Patched: Swapped faulty undefined variable layout with clean update selectors
+    await db.lists.update_one({"id": lid}, {"$set": {"property_ids": pids}})
     return {"ok": True, "property_ids": pids}
 
 @api.get("/lists/{lid}/export")
@@ -482,7 +483,7 @@ async def ingest_real_lead(payload: RealPropertyIn, request: Request):
 async def ingest_and_enrich_lead(payload: LocalCountyInput, request: Request):
     """
     HYBRID INTELLIGENCE PIPELINE: Receives lean courthouse records, executes 
-    outbound API calls to resolve financials/architectural metrics, and seeds MongoDB.
+    outbound API calls across RentCast and BatchData vendors, maps responses, and seeds MongoDB.
     """
     # 1. Verification Security Token Check
     api_key = request.headers.get("X-PropIntel-Key")
@@ -502,39 +503,72 @@ async def ingest_and_enrich_lead(payload: LocalCountyInput, request: Request):
         return {"status": "updated_existing_record", "id": existing["id"]}
 
     # 3. PREMIUM COMPREHENSIVE DATA ENRICHMENT LAYER
-    # Solid structural fallbacks if API limits are exhausted or key is missing
+    # Solid structural fallbacks if API limits are exhausted or keys are missing
     market_value = 185000.0  
     equity_pct = 80.0
     apn = "PENDING-METRO-LOOKUP"
     sqft = 1650
     beds = 3
 
-    premium_api_key = os.environ.get("PREMIUM_PROPERTY_API_KEY")
-    if premium_api_key:
+    # --- PHASE A: CORE PROPERTY DATA VIA RENTCAST ---
+    rentcast_key = os.environ.get("RENTCAST_API_KEY")
+    if rentcast_key:
         try:
-            # Query active property valuation engines (e.g., RentCast real-time property dataset)
-            api_url = "https://api.rentcast.io/v1/properties"
-            headers = {"X-Api-Key": premium_api_key}
-            params = {"address": normalized_address, "city": payload.city.upper(), "state": payload.state.uppercase()}
+            rc_url = "https://api.rentcast.io/v1/properties"
+            rc_headers = {"X-Api-Key": rentcast_key}
+            # Patched: Fixed .uppercase() typo to clean .upper()
+            rc_params = {"address": normalized_address, "city": payload.city.upper(), "state": payload.state.upper()}
             
-            response = requests.get(api_url, headers=headers, params=params, timeout=5)
-            if response.status_code == 200:
-                api_data = response.json()
-                if isinstance(api_data, list) and len(api_data) > 0:
-                    api_data = api_data[0]
+            rc_res = requests.get(rc_url, headers=rc_headers, params=rc_params, timeout=5)
+            if rc_res.status_code == 200 and rc_res.json():
+                rc_data = rc_res.json()
+                if isinstance(rc_data, list) and len(rc_data) > 0:
+                    rc_data = rc_data[0]
                 
-                market_value = api_data.get("price", api_data.get("estimatedValue", market_value))
-                sqft = api_data.get("squareFootage", sqft)
-                beds = api_data.get("bedrooms", beds)
-                apn = api_data.get("parcelNumber", apn)
-                
-                # Assess estimated balance sheets to derive remaining asset equity percentages
-                debt = api_data.get("activeMortgageBalance", 0)
-                if market_value > 0:
-                    equity_pct = ((market_value - debt) / market_value) * 100
-                    
+                # Mapping RentCast values to schema definitions
+                market_value = rc_data.get("estimatedValue", rc_data.get("price", market_value))
+                sqft = rc_data.get("squareFootage", sqft)
+                beds = rc_data.get("bedrooms", beds)
+                apn = rc_data.get("parcelNumber", apn)
+                logger.info(f"[API] RentCast successfully parsed structural metadata for {normalized_address}")
         except Exception as e:
-            logger.error(f"Enrichment connection layer skipped or timed out: {str(e)}")
+            logger.error(f"[API] RentCast connection exception bypassed: {str(e)}")
+
+    # --- PHASE B: FINANCIAL EQUITY DATA VIA BATCHDATA ---
+    batch_key = os.environ.get("BATCH_DATA_API_KEY")
+    if batch_key:
+        try:
+            batch_url = "https://api.batchdata.com/api/v1/property/enrich"
+            batch_headers = {
+                "Authorization": f"Bearer {batch_key}",
+                "Content-Type": "application/json"
+            }
+            batch_body = {
+                "address": {
+                    "street": normalized_address,
+                    "city": payload.city,
+                    "state": payload.state
+                }
+            }
+            
+            batch_res = requests.post(batch_url, json=batch_body, headers=batch_headers, timeout=5)
+            if batch_res.status_code == 200:
+                batch_payload = batch_res.json()
+                results = batch_payload.get("results", {})
+                financials = results.get("financial", {})
+                
+                # Mapping financial variables cleanly
+                calculated_equity_pct = financials.get("estimatedEquityPercent")
+                mortgage_balance = financials.get("estimatedMortgageBalance", 0)
+                
+                if calculated_equity_pct is not None:
+                    equity_pct = float(calculated_equity_pct)
+                elif market_value > 0 and mortgage_balance > 0:
+                    equity_pct = ((market_value - mortgage_balance) / market_value) * 100
+                
+                logger.info(f"[API] BatchData successfully validated financial equity layer.")
+        except Exception as e:
+            logger.error(f"[API] BatchData connection exception bypassed: {str(e)}")
 
     # 4. Synthesize Combined Hybrid Artifact Doc
     complete_lead_doc = {
