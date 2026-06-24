@@ -1,4 +1,4 @@
-"import { useEffect } from "react";
+import { useEffect } from "react";
 import { MapContainer, TileLayer, CircleMarker, Popup, useMap } from "react-leaflet";
 import "leaflet/dist/leaflet.css";
 
@@ -62,4 +62,4 @@ export const PropertyMap = ({ properties, selectedId, onSelect }) => {
 };
 
 export default PropertyMap;
-"
+
