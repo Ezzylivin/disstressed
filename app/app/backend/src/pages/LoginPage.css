@@ -1,0 +1,198 @@
+/* --- Master Content Wrapper --- */
+.auth-page-container {
+  min-height: 100vh;
+  width: 100vw;
+  display: flex;
+  flex-direction: column;
+  background-color: #ffffff;
+  color: #000000;
+  font-family: 'IBM Plex Sans', system-ui, sans-serif;
+  padding: 2rem;
+  box-sizing: border-box;
+}
+
+@media (min-width: 768px) {
+  .auth-page-container {
+    flex-direction: row;
+    padding: 0;
+  }
+}
+
+/* --- Left Column: Editorial Information --- */
+.auth-hero-side {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-start;
+  padding: 2rem;
+  border-bottom: 2px solid #000000;
+}
+
+@media (min-width: 768px) {
+  .auth-hero-side {
+    padding: 4rem;
+    border-bottom: none;
+    border-right: 2px solid #000000;
+    height: 100vh;
+    overflow-y: auto;
+  }
+}
+
+.auth-brand {
+  font-family: 'Chivo', sans-serif;
+  font-weight: 900;
+  text-transform: uppercase;
+  font-size: 1.5rem;
+  letter-spacing: -0.03em;
+  margin-bottom: 3rem;
+}
+
+.auth-hero-side h1 {
+  font-family: 'Chivo', sans-serif;
+  font-weight: 900;
+  font-size: 3rem;
+  line-height: 1.05;
+  text-transform: uppercase;
+  margin: 0 0 2rem 0;
+  letter-spacing: -0.02em;
+}
+
+.auth-hero-side p {
+  font-size: 0.95rem;
+  line-height: 1.5;
+  color: #262626;
+  max-width: 540px;
+  margin-bottom: 3rem;
+}
+
+.auth-stats-grid {
+  margin-top: auto;
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 1.5rem;
+  font-family: 'IBM Plex Mono', monospace;
+}
+
+.stat-block {
+  border-top: 1px solid #e5e5e5;
+  padding-top: 0.75rem;
+}
+
+.stat-value {
+  font-size: 1.25rem;
+  font-weight: 700;
+}
+
+.stat-label {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: #737373;
+  margin-top: 0.25rem;
+}
+
+/* --- Right Column: The Security Form Gate --- */
+.auth-form-side {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  padding: 3rem 2rem;
+  background-color: #fafafa;
+}
+
+@media (min-width: 768px) {
+  .auth-form-side {
+    height: 100vh;
+    padding: 4rem;
+  }
+}
+
+.auth-card {
+  width: 100%;
+  max-width: 400px;
+  background: #ffffff;
+  border: 2px solid #000000;
+  padding: 2.5rem;
+  box-shadow: 6px 6px 0px #000000;
+}
+
+.auth-card h2 {
+  font-family: 'Chivo', sans-serif;
+  font-weight: 900;
+  font-size: 2rem;
+  text-transform: uppercase;
+  margin: 0 0 2rem 0;
+}
+
+.form-group {
+  margin-bottom: 1.5rem;
+}
+
+.form-group label {
+  display: block;
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  margin-bottom: 0.5rem;
+}
+
+.form-group input {
+  width: 100%;
+  height: 44px;
+  border: 1px solid #000000;
+  padding: 0 1rem;
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 0.85rem;
+  box-sizing: border-box;
+}
+
+.form-group input:focus {
+  outline: none;
+  border-width: 2px;
+  background-color: #fffbeb;
+}
+
+.auth-submit-btn {
+  width: 100%;
+  height: 48px;
+  background-color: #000000;
+  color: #ffffff;
+  border: none;
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.15em;
+  cursor: pointer;
+  transition: background-color 0.1s ease;
+  margin-top: 0.5rem;
+}
+
+.auth-submit-btn:hover {
+  background-color: #262626;
+}
+
+.auth-footer-links {
+  margin-top: 1.5rem;
+  font-size: 0.8rem;
+  text-align: center;
+}
+
+.auth-footer-links a {
+  color: #000000;
+  font-weight: 700;
+  text-decoration: underline;
+}
+
+.demo-credentials-box {
+  margin-top: 2rem;
+  border: 1px dashed #cccccc;
+  background: #f4f4f5;
+  padding: 1rem;
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 11px;
+}
