@@ -166,3 +166,40 @@
 .btn-action-lime:hover {
   background: #ffffff;
 }
+
+/* --- SPLIT PANEL CORE STRUCTURING --- */
+.center-panel-layout {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-width: 0;
+  border-right: 1px solid #1a1a1a;
+}
+
+.map-viewport-wrapper {
+  height: 320px;
+  width: 100%;
+  border-bottom: 1px solid #1a1a1a;
+  position: relative;
+  background-color: #050505;
+}
+
+/* --- THE SECRET OBSIDIAN SKIN INVERSION FILTER --- */
+.terminal-map-skin {
+  filter: invert(100%) hue-rotate(180deg) brightness(90%) contrast(95%);
+  background: #000000 !important;
+}
+
+/* Override Leaflet Popup Styling to match the Brutalist theme */
+.leaflet-popup-content-wrapper {
+  background: #000000 !important;
+  border: 1px solid #222222 !important;
+  border-radius: 0px !important;
+  box-shadow: 0 0 15px rgba(222, 255, 154, 0.15) !important;
+}
+
+.leaflet-popup-tip {
+  background: #000000 !important;
+  border: 1px solid #222222 !important;
+}
