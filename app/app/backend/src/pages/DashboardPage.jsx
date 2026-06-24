@@ -4,7 +4,7 @@ import { api, fmtMoney } from "../lib/api";
 import { AppShell } from "../components/AppShell";
 import { FilterSidebar } from "../components/FilterSidebar";
 import { toast } from "sonner";
-import { ChevronRight, FileSpreadsheet, Plus, CheckSquare, Square } from "lucide-react";
+import { ChevronRight, FileSpreadsheet, Plus, CheckSquare, Square, Radio } from "lucide-react";
 import "./DashboardPage.css";
 import { PropertyMap } from "../components/PropertyMap";
 
@@ -15,6 +15,7 @@ export default function DashboardPage() {
   const [selectedId, setSelectedId] = useState(null);
   const [selected, setSelected] = useState(new Set());
   const [loading, setLoading] = useState(true);
+  const [tracing, setTracing] = useState(false); // Controls identity query loading states
   const [lists, setLists] = useState([]);
   const nav = useNavigate();
 
@@ -76,12 +77,38 @@ export default function DashboardPage() {
   };
 
   const createListWithSelection = async () => {
+    if (selected.size === 0) {
+      toast.error("Select properties first to generate a targeted list");
+      return;
+    }
     const name = prompt("List name?");
     if (!name) return;
     const { data } = await api.post("/lists", { name, property_ids: Array.from(selected) });
     toast.success(`Created list "${data.name}"`);
     setSelected(new Set());
     fetchLists();
+  };
+
+  // SPRINT 3: LIVE IDENTITY SKIP-TRACING INTERFACE CONTROLLER
+  const handleLiveSkipTrace = async (pid) => {
+    setTracing(true);
+    toast.info("Querying live identity networks... please hold");
+    try {
+      const { data } = await api.post(`/properties/${pid}/skip-trace`);
+      toast.success("Identity profile resolved successfully!");
+      
+      // Patch state array immediately so changes reflect without an expensive database reload
+      setProperties((prev) =>
+        prev.map((p) => (p.id === pid ? { ...p, skip_traced: true, skip_trace_data: data } : p))
+      );
+      
+      // Update global dashboard statistics counters live
+      fetchStats();
+    } catch (e) {
+      toast.error("Identity lookup failed or timed out");
+    } finally {
+      setTracing(false);
+    }
   };
 
   const selectedProperty = useMemo(() => {
@@ -109,12 +136,29 @@ export default function DashboardPage() {
             <KPI label="Skip Traced" value={stats?.skip_traced} accent="pop-blue" />
           </div>
 
+          {/* BATCH PROCESSING COMMAND STRIP */}
+          <div className="bg-[#050505] border-b border-neutral-900 px-6 py-2 flex justify-between items-center shrink-0 font-mono-pi text-xs">
+            <div className="text-neutral-500 uppercase text-[10px]">
+              // Selection Active: <span className="text-[#DEFF9A] font-bold">{selected.size}</span> Nodes Targeted
+            </div>
+            {selected.size > 0 && (
+              <div className="flex gap-4">
+                <button onClick={exportSelection} className="text-neutral-400 hover:text-white uppercase text-[10px] tracking-wider flex items-center gap-1.5 transition-colors">
+                  <FileSpreadsheet className="w-3.5 h-3.5 text-[#DEFF9A]" /> Export Selection (.XLSX)
+                </button>
+                <button onClick={createListWithSelection} className="text-neutral-400 hover:text-white uppercase text-[10px] tracking-wider flex items-center gap-1.5 transition-colors">
+                  <Plus className="w-3.5 h-3.5 text-[#00A3FF]" /> Save to CRM List
+                </button>
+              </div>
+            )}
+          </div>
+
           {/* GEOSPATIAL SPATIAL GRID LAYER */}
           <div className="map-viewport-wrapper">
             <PropertyMap 
               properties={properties} 
               selectedId={selectedId} 
-              setSelectedId={setSelectedId} 
+              onSelect={(id) => setSelectedId(id)} 
             />
           </div>
 
@@ -172,23 +216,70 @@ export default function DashboardPage() {
                 <div className="text-sm font-bold uppercase tracking-tight text-white">{selectedProperty.site_address}</div>
               </div>
             </div>
-            <div className="dossier-body flex flex-col justify-between">
-              <div className="space-y-4 font-mono-pi text-xs">
+            
+            <div className="dossier-body flex flex-col justify-between h-[calc(100%-60px)]">
+              <div className="space-y-4 font-mono-pi text-xs overflow-y-auto pr-1">
                 <div className="border-b border-neutral-900 pb-2">
                   <span className="text-neutral-600 block text-[9px] uppercase">Owner Identity</span>
-                  <span className="text-white font-bold">{selectedProperty.owner_name || "Unknown Record"}</span>
+                  <span className="text-white font-bold uppercase">{selectedProperty.owner_name || "Unknown Record"}</span>
                 </div>
+
+                {/* SPRINT 3: DYNAMIC DUAL-VENDOR CONTACT DISPLAY HUD */}
+                {selectedProperty.skip_traced && selectedProperty.skip_trace_data ? (
+                  <div className="space-y-3 bg-[#0a0a0a] p-3 border border-neutral-900">
+                    <div>
+                      <span className="text-[#DEFF9A] block text-[8px] uppercase font-bold tracking-wider mb-1">// Verified Phone Channels</span>
+                      {selectedProperty.skip_trace_data.mobile_lines?.map((m, idx) => (
+                        <div key={idx} className="text-white font-bold text-xs mt-1 flex justify-between">
+                          <span>{m.number}</span>
+                          <span className="text-[9px] text-neutral-600 font-normal uppercase tracking-tight">{m.carrier}</span>
+                        </div>
+                      ))}
+                      {selectedProperty.skip_trace_data.landlines?.map((l, idx) => (
+                        <div key={idx} className="text-neutral-400 text-xs mt-0.5 flex justify-between">
+                          <span>{l.number}</span>
+                          <span className="text-[9px] text-neutral-700 uppercase">Landline</span>
+                        </div>
+                      ))}
+                    </div>
+                    {selectedProperty.skip_trace_data.emails?.length > 0 && (
+                      <div>
+                        <span className="text-[#00A3FF] block text-[8px] uppercase font-bold tracking-wider mb-1">// Electronic Mail Nodes</span>
+                        {selectedProperty.skip_trace_data.emails.map((em, idx) => (
+                          <div key={idx} className="text-neutral-400 text-[11px] break-all select-all">{em}</div>
+                        ))}
+                      </div>
+                    )}
+                    <div className="text-[8px] text-neutral-700 border-t border-neutral-900 pt-1 mt-1 text-right italic">
+                      Source: {selectedProperty.skip_trace_data.provider || "BatchData Core Network"}
+                    </div>
+                  </div>
+                ) : (
+                  <div className="bg-[#050505] p-4 text-center border border-neutral-900 border-dashed">
+                    <span className="text-neutral-500 block text-[9px] uppercase tracking-wider mb-3">// Contact Channels Offline</span>
+                    <button 
+                      onClick={() => handleLiveSkipTrace(selectedProperty.id)} 
+                      disabled={tracing}
+                      className="btn-terminal w-full text-center py-2 flex items-center justify-center gap-1.5"
+                    >
+                      <Radio className={`w-3.5 h-3.5 ${tracing ? 'animate-pulse text-[#DEFF9A]' : ''}`} />
+                      {tracing ? "Querying Network..." : "Execute Live Skip-Trace"}
+                    </button>
+                  </div>
+                )}
+
                 <div className="border-b border-neutral-900 pb-2">
                   <span className="text-neutral-600 block text-[9px] uppercase">APN Parcel Number</span>
                   <span className="text-white">{selectedProperty.apn || "—"}</span>
                 </div>
+                
                 <div className="border-b border-neutral-900 pb-2">
                   <span className="text-neutral-600 block text-[9px] uppercase">Distress Flags</span>
-                  <span className="pop-red font-bold">{selectedProperty.distress_statuses?.join(", ") || "None Detected"}</span>
+                  <span className="pop-red font-bold uppercase">{selectedProperty.distress_statuses?.join(", ") || "None Detected"}</span>
                 </div>
               </div>
               
-              <div className="pt-4 border-t border-neutral-900 flex gap-2">
+              <div className="pt-4 border-t border-neutral-900 flex gap-2 shrink-0">
                 <button onClick={() => nav(`/property/${selectedProperty.id}`)} className="btn-action-lime w-full flex items-center justify-center gap-1">
                   Open Dossier <ChevronRight className="w-3 h-3" />
                 </button>
