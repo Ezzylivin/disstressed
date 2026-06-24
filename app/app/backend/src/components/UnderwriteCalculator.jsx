@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { api, fmtMoney } from "@/lib/api";
+import { api, fmtMoney } from "../lib/api";
 import { Calculator, TrendingUp } from "lucide-react";
 
 const Metric = ({ label, value, accent, mono = true, testid }) => (
