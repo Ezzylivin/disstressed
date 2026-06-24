@@ -1,4 +1,4 @@
-"import { useState, useEffect } from "react";
+import { useState, useEffect } from "react";
 import { api, fmtMoney } from "@/lib/api";
 import { Calculator, TrendingUp } from "lucide-react";
 
@@ -119,4 +119,4 @@ export const UnderwriteCalculator = ({ property }) => {
 };
 
 export default UnderwriteCalculator;
-"
+
