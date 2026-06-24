@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import { Database } from "lucide-react";
+import "./RegisterPage.css";
 
 export default function RegisterPage() {
   const { register, error } = useAuth();
