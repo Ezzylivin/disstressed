@@ -1,11 +1,11 @@
 import { useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
-import { useAuth } from "@/context/AuthContext";
+import { useAuth } from "../context/AuthContext";
 import { Database } from "lucide-react";
 
 export default function LoginPage() {
   const { login, error } = useAuth();
-  const [email, setEmail] = useState("admin@propintel.io");
+  const [email, setEmail] = useState("admin..propintel.io");
   const [password, setPassword] = useState("Demo2026!");
   const [loading, setLoading] = useState(false);
   const nav = useNavigate();
@@ -82,7 +82,7 @@ export default function LoginPage() {
           </div>
           <div className="mt-6 p-3 bg-neutral-100 border border-neutral-300 text-[11px] font-mono-pi" data-testid="demo-creds-hint">
             <div className="label-xs mb-1">/ demo</div>
-            admin@propintel.io · Demo2026!
+            admin..propintel.io · Demo2026!
           </div>
         </div>
       </div>
