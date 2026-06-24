@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { api } from "@/lib/api";
+import { api } from "../lib/api";
 import { Radio, Phone, Mail, Users } from "lucide-react";
 
 export const SkipTracePanel = ({ property, onUpdate }) => {
