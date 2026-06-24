@@ -146,36 +146,47 @@ async def get_current_user(request: Request) -> dict:
 # ============ Startup Lifecycle ============
 @app.on_event("startup")
 async def startup():
-    # Setup database indexes
-    await db.users.create_index("email", unique=True)
-    await db.properties.create_index("id", unique=True)
-    await db.properties.create_index("city")
-    await db.properties.create_index("state")
-    await db.lists.create_index("id", unique=True)
+    try:
+        logger.info("Initializing serverless database infrastructure...")
+        
+        # 1. Core verification check to ensure Atlas is reachable
+        await client.admin.command('ping')
+        
+        # 2. Build collection indexes smoothly
+        await db.users.create_index("email", unique=True)
+        await db.properties.create_index("id", unique=True)
+        await db.properties.create_index("city")
+        await db.properties.create_index("state")
+        await db.lists.create_index("id", unique=True)
 
-    # Seed core administrator identity safely
-    admin_email = os.environ.get("ADMIN_EMAIL", "admin@propintel.io").lower()
-    admin_pw = os.environ.get("ADMIN_PASSWORD", "Demo2026!")
-    existing = await db.users.find_one({"email": admin_email})
-    if not existing:
-        await db.users.insert_one({
-            "id": str(uuid.uuid4()),
-            "email": admin_email,
-            "name": "Admin",
-            "role": "admin",
-            "password_hash": hash_password(admin_pw),
-            "created_at": datetime.now(timezone.utc).isoformat(),
-        })
-    elif not verify_password(admin_pw, existing.get("password_hash", "")):
-        await db.users.update_one({"email": admin_email},
-                                  {"$set": {"password_hash": hash_password(admin_pw)}})
+        # 3. Seed administrator identity
+        admin_email = os.environ.get("ADMIN_EMAIL", "admin@propintel.io").lower()
+        admin_pw = os.environ.get("ADMIN_PASSWORD", "Demo2026!")
+        existing = await db.users.find_one({"email": admin_email})
+        if not existing:
+            await db.users.insert_one({
+                "id": str(uuid.uuid4()),
+                "email": admin_email,
+                "name": "Admin",
+                "role": "admin",
+                "password_hash": hash_password(admin_pw),
+                "created_at": datetime.now(timezone.utc).isoformat(),
+            })
+            logger.info("Admin user seeded.")
+        elif not verify_password(admin_pw, existing.get("password_hash", "")):
+            await db.users.update_one({"email": admin_email},
+                                      {"$set": {"password_hash": hash_password(admin_pw)}})
 
-    # Seed property database entries if records are empty
-    count = await db.properties.count_documents({})
-    if count == 0:
-        props = generate_properties(60)
-        await db.properties.insert_many(props)
-        logger.info(f"Seeded {len(props)} properties successfully.")
+        # 4. Safe evaluation for properties matrix seeding
+        count = await db.properties.count_documents({})
+        if count == 0:
+            props = generate_properties(60)
+            await db.properties.insert_many(props)
+            logger.info(f"Seeded {len(props)} properties successfully.")
+            
+    except Exception as err:
+        # Forces the precise error traceback to print directly into your Vercel Runtime logs
+        logger.critical(f"FATAL APPLICATION STARTUP ERROR: {str(err)}", exc_info=True)
 
 @app.on_event("shutdown")
 async def shutdown():
