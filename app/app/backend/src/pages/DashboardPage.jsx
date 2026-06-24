@@ -6,7 +6,8 @@ import { FilterSidebar } from "../components/FilterSidebar";
 import { PropertyMap } from "../components/PropertyMap";
 import { PropertyCard } from "../components/PropertyCard";
 import { toast } from "sonner";
-import { ChevronRight, FileSpreadsheet, Radio, Plus } from "lucide-react";
+import { ChevronRight, FileSpreadsheet, Plus } from "lucide-react";
+import "./DashboardPage.css"; // Core Stylesheet Matrix Connected
 
 export default function DashboardPage() {
   const [properties, setProperties] = useState([]);
@@ -19,24 +20,21 @@ export default function DashboardPage() {
   const nav = useNavigate();
 
   const fetchProps = async () => {
-  setLoading(true);
-  try {
-    const params = {};
-    Object.entries(filters).forEach(([k, v]) => {
-      if (v !== undefined && v !== "" && v !== false) params[k] = v;
-    });
-    const { data } = await api.get("/properties", { params });
-    
-    // Fallback order: data.items -> data itself -> safe empty array
-    setProperties(data?.items || (Array.isArray(data) ? data : []));
-    
-  } catch (e) {
-    toast.error("Failed to load property stream");
-    setProperties([]); // Force reset to array on network failure
-  } finally { 
-    setLoading(false); 
-  }
-};
+    setLoading(true);
+    try {
+      const params = {};
+      Object.entries(filters).forEach(([k, v]) => {
+        if (v !== undefined && v !== "" && v !== false) params[k] = v;
+      });
+      const { data } = await api.get("/properties", { params });
+      setProperties(data?.items || (Array.isArray(data) ? data : []));
+    } catch (e) {
+      toast.error("Failed to load property stream");
+      setProperties([]);
+    } finally { 
+      setLoading(false); 
+    }
+  };
 
   const fetchStats = async () => {
     const { data } = await api.get("/properties/stats");
@@ -98,43 +96,45 @@ export default function DashboardPage() {
   };
 
   const selectedProperty = useMemo(() => {
-  return properties?.find((p) => p.id === selectedId);
-}, [properties, selectedId]);
+    return properties?.find((p) => p.id === selectedId);
+  }, [properties, selectedId]);
 
   return (
     <AppShell>
-      <div className="h-full flex flex-row">
-        <FilterSidebar filters={filters} setFilters={setFilters} stats={stats}/>
+      <div className="dashboard-container">
+        
+        {/* LEFT COLUMN: Fixed Filters Sidebar Wrapper */}
+        <div className="filter-sidebar-wrapper">
+          <FilterSidebar filters={filters} setFilters={setFilters} stats={stats}/>
+        </div>
 
-        {/* CENTER: Map + KPI strip */}
-        <section className="flex-1 flex flex-col min-w-0 border-r border-neutral-300">
-          <div className="grid grid-cols-2 sm:grid-cols-5 border-b border-neutral-300 shrink-0">
+        {/* CENTER PANEL: KPIs + Map Element Canvas */}
+        <section className="center-panel">
+          <div className="kpi-strip-grid">
             <KPI label="Total Records" value={stats?.total} testid="kpi-total"/>
             <KPI label="Vacant" value={stats?.vacant} accent="text-[#002fa7]" testid="kpi-vacant"/>
             <KPI label="Tax Delinquent" value={stats?.tax_delinquent} accent="text-yellow-700" testid="kpi-taxdel"/>
             <KPI label="Absentee Owner" value={stats?.absentee} testid="kpi-absentee"/>
             <KPI label="Skip Traced" value={stats?.skip_traced} accent="text-green-700" testid="kpi-skiptraced"/>
           </div>
-          <div className="flex-1 relative min-h-0">
+          <div className="map-viewport-container">
             <PropertyMap properties={properties} selectedId={selectedId} onSelect={setSelectedId} />
             {loading && <div className="absolute top-2 left-2 bg-white border border-black px-3 py-1 text-xs font-mono-pi" data-testid="map-loading">Loading...</div>}
           </div>
         </section>
 
-        {/* RIGHT: Property feed */}
-        <aside className="w-[420px] flex flex-col shrink-0" data-testid="property-feed">
-          <div className="border-b border-black px-3 py-2 bg-white flex items-center justify-between shrink-0">
+        {/* RIGHT COLUMN: Scrolling Property Feed Drawer */}
+        <aside className="property-feed-aside" data-testid="property-feed">
+          <div className="feed-header-controls">
             <div>
-              <div className="font-display font-bold uppercase text-xs tracking-wide">Property Feed</div>
+              <div className="feed-title">Property Feed</div>
               <div className="label-xs">{properties.length} results · {selected.size} selected</div>
             </div>
-            <div className="flex gap-1">
-              <button data-testid="export-selected-btn" onClick={exportSelection}
-                className="flex items-center gap-1 bg-[#002fa7] text-white hover:bg-blue-900 px-2.5 py-1.5 text-[10px] font-bold uppercase tracking-[0.1em]">
+            <div className="action-button-group">
+              <button data-testid="export-selected-btn" onClick={exportSelection} className="panel-action-btn btn-blue">
                 <FileSpreadsheet className="w-3 h-3"/> Export
               </button>
-              <button data-testid="create-list-btn" onClick={createListWithSelection}
-                className="flex items-center gap-1 bg-black text-white hover:bg-neutral-800 px-2.5 py-1.5 text-[10px] font-bold uppercase tracking-[0.1em]">
+              <button data-testid="create-list-btn" onClick={createListWithSelection} className="panel-action-btn btn-black">
                 <Plus className="w-3 h-3"/> List
               </button>
             </div>
@@ -154,14 +154,14 @@ export default function DashboardPage() {
             </div>
           )}
 
-          <div className="flex-1 overflow-y-auto">
+          <div className="feed-scroll-container">
             {properties.map((p) => (
-              <div key={p.id} className="flex" data-testid={`feed-row-${p.id}`}>
-                <label className="px-2 flex items-center justify-center border-r border-neutral-300 bg-neutral-50">
+              <div key={p.id} className="feed-row-item" data-testid={`feed-row-${p.id}`}>
+                <label className="feed-row-checkbox-anchor">
                   <input type="checkbox" data-testid={`select-${p.id}`} checked={selected.has(p.id)} onChange={() => toggleSel(p.id)}
                     className="w-3.5 h-3.5 border-black accent-[#002fa7]"/>
                 </label>
-                <div className="flex-1 min-w-0">
+                <div className="feed-card-target">
                   <PropertyCard p={p} selected={selectedId === p.id} onClick={() => setSelectedId(p.id)}/>
                 </div>
               </div>
@@ -174,7 +174,7 @@ export default function DashboardPage() {
           </div>
 
           {selectedProperty && (
-            <div className="border-t border-black p-3 bg-neutral-50 shrink-0">
+            <div className="bottom-dossier-tray">
               <div className="flex items-center justify-between">
                 <div className="min-w-0">
                   <div className="font-display font-bold uppercase text-xs truncate">{selectedProperty.site_address}</div>
@@ -189,15 +189,16 @@ export default function DashboardPage() {
             </div>
           )}
         </aside>
+
       </div>
     </AppShell>
   );
 }
 
+// Clean Component Layout for KPIs
 const KPI = ({ label, value, accent, testid }) => (
-  <div className="p-3 border-r border-neutral-300 last:border-r-0 bg-white" data-testid={testid}>
+  <div className="kpi-block" data-testid={testid}>
     <div className="label-xs">{label}</div>
-    <div className={`font-mono-pi text-xl font-semibold ${accent || ""}`}>{value ?? "—"}</div>
+    <div className={`kpi-value ${accent || ""}`}>{value ?? "—"}</div>
   </div>
 );
-
