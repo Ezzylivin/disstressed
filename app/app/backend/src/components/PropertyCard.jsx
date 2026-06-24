@@ -1,4 +1,4 @@
-"import { fmtMoney } from \"@/lib/api\";
+import { fmtMoney } from \"@/lib/api\";
 import { AlertTriangle, Home, MapPin } from \"lucide-react\";
 
 const tagColor = (s) => {
@@ -51,4 +51,4 @@ export const PropertyCard = ({ p, selected, onClick }) => {
 };
 
 export default PropertyCard;
-"
+
