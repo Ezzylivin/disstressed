@@ -98,7 +98,7 @@ export default function DashboardPage() {
         </div>
 
         {/* RE-ENGINEERED DATA CORE COMPONENT */}
-        <section className="main-data-core">
+        <section className="main-data-core flex-1 flex flex-col min-width-0 h-full">
           
           {/* HIGH CONTRAST KPI STRIP */}
           <div className="kpi-strip-grid">
@@ -109,13 +109,22 @@ export default function DashboardPage() {
             <KPI label="Skip Traced" value={stats?.skip_traced} accent="pop-blue" />
           </div>
 
+          {/* GEOSPATIAL SPATIAL GRID LAYER */}
+          <div className="map-viewport-wrapper">
+            <PropertyMap 
+              properties={properties} 
+              selectedId={selectedId} 
+              setSelectedId={setSelectedId} 
+            />
+          </div>
+
           {/* CENTRAL MASTER FEED MATRIX */}
           <div className="grid-feed-container">
             {properties.map((p) => {
               const isVacant = p.vacant;
               const isDelinquent = p.distress_statuses?.length > 0;
               const badgeClass = isDelinquent ? "badge-distress" : (isVacant ? "badge-vacant" : "badge-normal");
-              const statusLabel = isDelinquent ? "Distressed Asset" : (isVacant ? "USPS Vacant" : "Clear Equity");
+              const statusLabel = isDelinquent ? p.distress_statuses[0] : (isVacant ? "USPS Vacant" : "Clear Equity");
 
               return (
                 <div key={p.id} 
