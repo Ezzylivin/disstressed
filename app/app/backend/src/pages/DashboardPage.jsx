@@ -1,10 +1,10 @@
 import { useEffect, useState, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
-import { api, fmtMoney } from "@/lib/api";
-import { AppShell } from "@/components/AppShell";
-import { FilterSidebar } from "@/components/FilterSidebar";
-import { PropertyMap } from "@/components/PropertyMap";
-import { PropertyCard } from "@/components/PropertyCard";
+import { api, fmtMoney } from "../lib/api";
+import { AppShell } from "../components/AppShell";
+import { FilterSidebar } from "../components/FilterSidebar";
+import { PropertyMap } from "../components/PropertyMap";
+import { PropertyCard } from "../components/PropertyCard";
 import { toast } from "sonner";
 import { ChevronRight, FileSpreadsheet, Radio, Plus } from "lucide-react";
 
