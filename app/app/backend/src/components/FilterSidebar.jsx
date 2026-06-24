@@ -1,4 +1,4 @@
-"import { Filter } from \"lucide-react\";
+import { Filter } from \"lucide-react\";
 
 export const FilterSidebar = ({ filters, setFilters, stats }) => {
   const set = (k, v) => setFilters((f) => ({ ...f, [k]: v }));
@@ -101,4 +101,4 @@ export const FilterSidebar = ({ filters, setFilters, stats }) => {
 };
 
 export default FilterSidebar;
-"
+
