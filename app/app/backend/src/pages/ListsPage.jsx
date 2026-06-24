@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import { api, fmtMoney } from "@/lib/api";
-import { AppShell } from "@/components/AppShell";
+import { api, fmtMoney } from "../lib/api";
+import { AppShell } from "../components/AppShell";
 import { toast } from "sonner";
 import { FileSpreadsheet, Trash2, Plus, ListChecks, ChevronRight } from "lucide-react";
 
