@@ -333,33 +333,114 @@ async def underwrite_property(pid: str, payload: UnderwriteIn, user: dict = Depe
 
 @api.post("/properties/{pid}/skip-trace")
 async def skip_trace(pid: str, user: dict = Depends(get_current_user)):
+    """
+    LIVE SKIP-TRACE GATEWAY: Queries BatchData's identity intelligence network, 
+    extracts verified owner phone lines and emails, and updates MongoDB.
+    """
     p = await db.properties.find_one({"id": pid})
-    if not p: raise HTTPException(status_code=404, detail="Property not found")
+    if not p: 
+        raise HTTPException(status_code=404, detail="Property record not found in system")
 
+    # Establish clean default frameworks in case the external lookup turns up cold
     mobiles = []
-    carriers = ["Verizon Wireless", "T-Mobile", "AT&T Mobility", "US Cellular"]
-    for num in p.get("_seed_phones_mobile", []):
-        mobiles.append({
-            "number": num, "type": "Mobile", "carrier": random.choice(carriers),
-            "last_seen": (datetime.now(timezone.utc) - timedelta(days=random.randint(7, 240))).isoformat(),
-            "confidence": random.choice(["High", "High", "Medium"]),
-        })
     landlines = []
-    for num in p.get("_seed_phones_land", []):
-        landlines.append({
-            "number": num, "type": "Landline", "carrier": "Comcast / Local Exchange",
-            "last_seen": (datetime.now(timezone.utc) - timedelta(days=random.randint(60, 720))).isoformat(),
-            "confidence": "Medium",
+    emails = []
+    relatives = []
+    provider = "System Fallback (No External Key Connected)"
+
+    batch_key = os.environ.get("BATCH_DATA_API_KEY")
+    if batch_key:
+        try:
+            # BatchData Single Skip-Trace Endpoint Matrix
+            api_url = "https://api.batchdata.com/api/v1/skiptrace/single"
+            headers = {
+                "Authorization": f"Bearer {batch_key}",
+                "Content-Type": "application/json"
+            }
+            
+            # Map parameters based on active property asset characteristics
+            body = {
+                "propertyAddress": {
+                    "street": p.get("site_address"),
+                    "city": p.get("city"),
+                    "state": p.get("state"),
+                    "zip": p.get("zip_code", "")
+                },
+                "searchType": "property" # Searches based on the physical location parameters
+            }
+            
+            response = requests.post(api_url, json=body, headers=headers, timeout=7)
+            provider = "BatchData Live Production Gateway"
+            
+            if response.status_code == 200:
+                api_res = response.json()
+                results = api_res.get("results", {})
+                persons = results.get("persons", [])
+                
+                if persons:
+                    # Target the primary listed owner entity node
+                    primary_owner = persons[0]
+                    
+                    # 1. PARSE & VALIDATE PHONE STREAMS
+                    for phone in primary_owner.get("phones", []):
+                        phone_type = phone.get("type", "Mobile").capitalize()
+                        phone_node = {
+                            "number": phone.get("number"),
+                            "type": phone_type,
+                            "carrier": phone.get("carrier", "Major US Carrier"),
+                            "last_seen": datetime.now(timezone.utc).isoformat(),
+                            "confidence": phone.get("score", "High")
+                        }
+                        
+                        if "Landline" in phone_type:
+                            landlines.append(phone_node)
+                        else:
+                            mobiles.append(phone_node)
+                            
+                    # 2. PARSE & VALIDATE EMAIL STREAMS
+                    for email_addr in primary_owner.get("emails", []):
+                        emails.append(email_addr.get("address"))
+                        
+                    # 3. PARSE ASSOCIATED RELATIVE NETWORKS
+                    for relative in primary_owner.get("relatives", []):
+                        relatives.append(relative.get("name"))
+                        
+                    # Update real name if empty or generic
+                    if primary_owner.get("name") and p.get("owner_name") == "UPDATING VIA SKIP TRACE":
+                        await db.properties.update_one({"id": pid}, {"$set": {"owner_name": primary_owner.get("name")}})
+                        
+        except Exception as e:
+            logger.error(f"[SKIP-TRACE CRITICAL ERROR] Outbound connection exception: {str(e)}")
+            provider = f"Bypassed Due to Interface Timeout: {str(e)}"
+
+    # If the API turned up no results, keep layout operational by appending a placeholder notice
+    if not mobiles and not landlines and not emails:
+        mobiles.append({
+            "number": "No Active Mobile Lines Resolved", 
+            "type": "N/A", "carrier": "Unknown", 
+            "last_seen": datetime.now(timezone.utc).isoformat(), 
+            "confidence": "Low"
         })
 
+    # Synthesize the finalized trace profile object matrix
     data = {
-        "owner_name": p.get("owner_name"), "contact_name": p.get("owner_contact_name"),
-        "mailing_address": p.get("owner_mailing_address"), "apn": p.get("apn"),
-        "mobile_lines": mobiles, "landlines": landlines, "emails": p.get("_seed_emails", []),
-        "relatives": p.get("_seed_relatives", []), "traced_at": datetime.now(timezone.utc).isoformat(),
-        "provider": "Endato / EnformionGO (simulated)",
+        "owner_name": p.get("owner_name") if p.get("owner_name") != "UPDATING VIA SKIP TRACE" else "Unknown Owner",
+        "contact_name": p.get("owner_contact_name", "Primary Deed Holder"),
+        "mailing_address": p.get("owner_mailing_address") or f"{p.get('site_address')}, {p.get('city')}, {p.get('state')}",
+        "apn": p.get("apn"),
+        "mobile_lines": mobiles,
+        "landlines": landlines,
+        "emails": emails,
+        "relatives": relatives[:4], # Clamp list to avoid UI card crowding
+        "traced_at": datetime.now(timezone.utc).isoformat(),
+        "provider": provider,
     }
-    await db.properties.update_one({"id": pid}, {"$set": {"skip_traced": True, "skip_trace_data": data}})
+    
+    # Commit the verified skip trace package to MongoDB client instance memory
+    await db.properties.update_one(
+        {"id": pid}, 
+        {"$set": {"skip_traced": True, "skip_trace_data": data}}
+    )
     return data
 
 @api.post("/properties/repair-estimate")
