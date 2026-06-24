@@ -6,6 +6,7 @@ import { FilterSidebar } from "../components/FilterSidebar";
 import { toast } from "sonner";
 import { ChevronRight, FileSpreadsheet, Plus, CheckSquare, Square } from "lucide-react";
 import "./DashboardPage.css";
+import { PropertyMap } from "../components/PropertyMap";
 
 export default function DashboardPage() {
   const [properties, setProperties] = useState([]);
