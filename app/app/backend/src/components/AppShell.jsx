@@ -1,7 +1,6 @@
-
-Action: file_editor create /app/frontend/src/components/AppShell.jsx --file-text "import { Link, useLocation, useNavigate } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
-import { Building2, LayoutGrid, ListChecks, LogOut, Database } from "lucide-react";
+import { LayoutGrid, ListChecks, LogOut, Database } from "lucide-react";
 
 export const AppShell = ({ children }) => {
   const { user, logout } = useAuth();
@@ -13,7 +12,10 @@ export const AppShell = ({ children }) => {
     { to: "/lists", label: "Lists & Export", icon: ListChecks },
   ];
 
-  const onLogout = async () => { await logout(); nav("/login"); };
+  const onLogout = async () => { 
+    await logout(); 
+    nav("/login"); 
+  };
 
   return (
     <div className="h-screen w-screen flex flex-col bg-white">
@@ -30,9 +32,12 @@ export const AppShell = ({ children }) => {
               const active = loc.pathname.startsWith(it.to);
               const Icon = it.icon;
               return (
-                <Link key={it.to} to={it.to}
-                  data-testid={`nav-${it.label.toLowerCase().replace(/s/g, '-')}`}
-                  className={`flex items-center gap-2 px-3 h-12 text-xs uppercase tracking-[0.1em] font-bold border-l border-r border-transparent ${active ? 'bg-black text-white' : 'text-neutral-700 hover:bg-neutral-100'}`}>
+                <Link 
+                  key={it.to} 
+                  to={it.to}
+                  data-testid={`nav-${it.label.toLowerCase().replace(/\s/g, '-')}`}
+                  className={`flex items-center gap-2 px-3 h-12 text-xs uppercase tracking-[0.1em] font-bold border-l border-r border-transparent ${active ? 'bg-black text-white' : 'text-neutral-700 hover:bg-neutral-100'}`}
+                >
                   <Icon className="w-3.5 h-3.5" strokeWidth={1.8}/>
                   {it.label}
                 </Link>
@@ -57,5 +62,3 @@ export const AppShell = ({ children }) => {
 };
 
 export default AppShell;
-"
-Observation: Create successful: /app/frontend/src/components/AppShell.jsx
