@@ -196,4 +196,4 @@ def generate_property():
 
 def generate_properties(n=60):
     return [generate_property() for _ in range(n)]
-"
+
