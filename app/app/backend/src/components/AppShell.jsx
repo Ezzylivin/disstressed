@@ -10,6 +10,7 @@ export const AppShell = ({ children }) => {
   const navItems = [
     { to: "/dashboard", label: "Intelligence", icon: LayoutGrid },
     { to: "/lists", label: "Lists & Export", icon: ListChecks },
+    { to: "/import", label: "Import Matrix", icon: LayoutGrid },
   ];
 
   return (
