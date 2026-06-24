@@ -203,7 +203,7 @@ async def startup():
         # 4. Safe evaluation for properties matrix seeding
         count = await db.properties.count_documents({})
         if count == 0:
-            props = generate_properties(500)  # <-- Crank it up to 500!
+            props = generate_properties(5000)  # <-- Crank it up
             await db.properties.insert_many(props)
             logger.info(f"Seeded {len(props)} properties successfully.")
             
