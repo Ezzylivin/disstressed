@@ -19,16 +19,24 @@ export default function DashboardPage() {
   const nav = useNavigate();
 
   const fetchProps = async () => {
-    setLoading(true);
-    try {
-      const params = {};
-      Object.entries(filters).forEach(([k, v]) => {
-        if (v !== undefined && v !== "" && v !== false) params[k] = v;
-      });
-      const { data } = await api.get("/properties", { params });
-      setProperties(data.items);
-    } finally { setLoading(false); }
-  };
+  setLoading(true);
+  try {
+    const params = {};
+    Object.entries(filters).forEach(([k, v]) => {
+      if (v !== undefined && v !== "" && v !== false) params[k] = v;
+    });
+    const { data } = await api.get("/properties", { params });
+    
+    // Fallback order: data.items -> data itself -> safe empty array
+    setProperties(data?.items || (Array.isArray(data) ? data : []));
+    
+  } catch (e) {
+    toast.error("Failed to load property stream");
+    setProperties([]); // Force reset to array on network failure
+  } finally { 
+    setLoading(false); 
+  }
+};
 
   const fetchStats = async () => {
     const { data } = await api.get("/properties/stats");
@@ -89,7 +97,9 @@ export default function DashboardPage() {
     fetchLists();
   };
 
-  const selectedProperty = useMemo(() => properties.find((p) => p.id === selectedId), [properties, selectedId]);
+  const selectedProperty = useMemo(() => {
+  return properties?.find((p) => p.id === selectedId);
+}, [properties, selectedId]);
 
   return (
     <AppShell>
