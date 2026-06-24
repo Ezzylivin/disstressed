@@ -203,3 +203,11 @@
   background: #000000 !important;
   border: 1px solid #222222 !important;
 }
+
+/* Custom disabled tracking state updates for brutalist buttons */
+.btn-terminal:disabled {
+  background-color: #111111 !important;
+  color: #555555 !important;
+  border-color: #222222 !important;
+  cursor: not-allowed;
+}
