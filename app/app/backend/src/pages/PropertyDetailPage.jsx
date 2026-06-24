@@ -1,9 +1,9 @@
 import { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { api, fmtMoney, fmtNum } from "@/lib/api";
-import { AppShell } from "@/components/AppShell";
-import { SkipTracePanel } from "@/components/SkipTracePanel";
-import { UnderwriteCalculator } from "@/components/UnderwriteCalculator";
+import { api, fmtMoney, fmtNum } from "../lib/api";
+import { AppShell } from "../components/AppShell";
+import { SkipTracePanel } from "../components/SkipTracePanel";
+import { UnderwriteCalculator } from "../components/UnderwriteCalculator";
 import { toast } from "sonner";
 import { ArrowLeft, FileSpreadsheet, Plus, Home, Building2, History, MapPin } from "lucide-react";
 
