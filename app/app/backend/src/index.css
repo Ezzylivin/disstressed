@@ -242,3 +242,134 @@ table.data-matrix {
   background-color: #050505;
   color: #DEFF9A;
 }
+
+@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&family=JetBrains+Mono:wght@400;500;700&display=swap');
+
+:root {
+  --bg-main: #000000;
+  --bg-card: #050505;
+  --bg-sidebar: #0a0a0a;
+  --border-color: #161616;
+  --accent-lime: #DEFF9A;
+  --accent-blue: #00A3FF;
+  --text-primary: #ffffff;
+  --text-muted: #666666;
+}
+
+/* ==========================================
+   1. LAYOUT CONTAINERS & GENEROUS SPACING
+   ========================================== */
+body {
+  background-color: var(--bg-main);
+  color: var(--text-primary);
+  font-family: 'Space Grotesk', sans-serif;
+}
+
+.dashboard-container {
+  display: flex;
+  gap: 24px; /* Creates clean separation between sidebar and main feed */
+  padding: 24px;
+  height: 100vh;
+  box-sizing: border-box;
+  background-color: var(--bg-main);
+}
+
+.main-data-core {
+  gap: 20px; /* Spaces out KPIs, map viewports, and feed grids */
+}
+
+/* ==========================================
+   2. REFINED SIDEBAR & TACTICAL INPUTS
+   ========================================== */
+.filter-sidebar-wrapper aside {
+  background-color: var(--bg-sidebar) !important;
+  border: 1px solid var(--border-color) !important;
+  border-radius: 12px;
+  padding: 16px;
+}
+
+/* Give form rows breathing room */
+.filter-sidebar-wrapper label {
+  padding: 12px 14px !important;
+  margin-bottom: 6px;
+  border-radius: 8px;
+  background-color: rgba(255, 255, 255, 0.01);
+  border: 1px solid transparent;
+  transition: all 0.2s ease;
+}
+
+.filter-sidebar-wrapper label:hover {
+  background-color: #111111 !important;
+  border-color: var(--border-color);
+}
+
+/* Beautiful modern text fields */
+input[type="text"], select {
+  background-color: #111111 !important;
+  border: 1px solid var(--border-color) !important;
+  border-radius: 6px !important;
+  padding: 12px 16px !important;
+  font-family: 'JetBrains Mono', monospace !important;
+  font-size: 12px !important;
+  margin-top: 4px;
+}
+
+/* ==========================================
+   3. SPACIOUS PREMIUM FEED CARDS
+   ========================================== */
+.grid-feed-container {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: 20px; /* Stops cards from feeling squeezed */
+  padding-bottom: 24px;
+}
+
+.terminal-card {
+  background-color: var(--bg-card) !important;
+  border: 1px solid var(--border-color) !important;
+  border-radius: 12px !important;
+  padding: 20px !important;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 12px;
+  transition: all 0.2s ease-in-out;
+}
+
+.terminal-card:hover, .terminal-card.active-target {
+  border-color: var(--accent-lime) !important;
+  box-shadow: 0 0 20px rgba(222, 255, 154, 0.08);
+  transform: translateY(-2px);
+}
+
+/* ==========================================
+   4. DATA MATRIX & UNDERWRITING TABLES
+   ========================================== */
+.underwriting-table, table.data-matrix {
+  border-collapse: separate;
+  border-spacing: 0 8px; /* Spaces out rows cleanly */
+  width: 100%;
+}
+
+.underwriting-table tr {
+  background-color: var(--bg-card);
+  transition: transform 0.15s ease;
+}
+
+.underwriting-table td {
+  padding: 14px 16px !important;
+  border-top: 1px solid var(--border-color);
+  border-bottom: 1px solid var(--border-color);
+}
+
+.underwriting-table td:first-child {
+  border-left: 1px solid var(--border-color);
+  border-top-left-radius: 8px;
+  border-bottom-left-radius: 8px;
+}
+
+.underwriting-table td:last-child {
+  border-right: 1px solid var(--border-color);
+  border-top-right-radius: 8px;
+  border-bottom-right-radius: 8px;
+}
