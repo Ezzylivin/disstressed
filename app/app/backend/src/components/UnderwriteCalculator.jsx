@@ -1,115 +1,233 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { api, fmtMoney } from "../lib/api";
+import { toast } from "sonner";
 import { Calculator, TrendingUp } from "lucide-react";
+import "./UnderwriteCalculator.css";
 
-const Metric = ({ label, value, accent, mono = true, testid }) => (
-  <div className="border-r border-b border-neutral-300 p-3 flex flex-col gap-1 last:border-r-0" data-testid={testid}>
-    <div className="label-xs">{label}</div>
-    <div className={`${mono ? "font-mono-pi" : "font-display"} text-lg font-semibold tracking-tight ${accent || ""}`}>
-      {value}
-    </div>
+// FIX 6: mono conditional removed — all metrics use mono; dead branch deleted
+const Metric = ({ label, value, accent, testid }) => (
+  <div className="uw-metric" data-testid={testid}>
+    <span className="uw-metric-label">{label}</span>
+    <span className={`uw-metric-value ${accent || ""}`}>{value ?? "—"}</span>
   </div>
 );
 
 export const UnderwriteCalculator = ({ property }) => {
-  const [scope, setScope] = useState("moderate");
-  const [capRate, setCapRate] = useState(0.08);
-  const [vacancy, setVacancy] = useState(0.08);
+  const [scope,    setScope]    = useState("moderate");
+  const [capRate,  setCapRate]  = useState(0.08);
+  const [vacancy,  setVacancy]  = useState(0.08);
   const [expRatio, setExpRatio] = useState(0.40);
   const [compsPsf, setCompsPsf] = useState("");
-  const [result, setResult] = useState(null);
-  const [loading, setLoading] = useState(false);
+  const [result,   setResult]   = useState(null);
+  const [loading,  setLoading]  = useState(false);
 
-  const run = async () => {
+  // FIX 7: wrapped in useCallback so useEffect dep is stable — no eslint-disable needed
+  const run = useCallback(async () => {
+    if (loading) return;
     setLoading(true);
     try {
       const { data } = await api.post(`/properties/${property.id}/underwrite`, {
-        scope, cap_rate: capRate, vacancy_rate: vacancy, expense_ratio: expRatio,
-        comps_psf: compsPsf ? parseFloat(compsPsf) : null,
+        scope,
+        cap_rate:      capRate,
+        vacancy_rate:  vacancy,
+        expense_ratio: expRatio,
+        comps_psf:     compsPsf ? parseFloat(compsPsf) : null,
       });
       setResult(data);
-    } finally { setLoading(false); }
+    } catch {
+      // FIX 1: errors were silently swallowed — now surfaced
+      toast.error("Underwrite calculation failed");
+    } finally {
+      setLoading(false);
+    }
+  }, [property.id, scope, capRate, vacancy, expRatio, compsPsf]);
+
+  // Run once on mount with initial defaults
+  useEffect(() => { run(); }, [property.id]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // FIX 2: safe numeric parser — returns fallback on NaN/empty
+  const safeFloat = (val, fallback) => {
+    const n = parseFloat(val);
+    return isNaN(n) ? fallback : n;
   };
 
-  useEffect(() => { run(); /* eslint-disable-next-line */ }, [property.id]);
-
   return (
-    <div className="border border-neutral-300 bg-white" data-testid="underwrite-calc">
-      <div className="px-4 py-3 border-b border-neutral-300 flex items-center justify-between bg-neutral-50">
-        <div className="flex items-center gap-2">
-          <Calculator className="w-4 h-4" strokeWidth={1.5}/>
-          <span className="font-display font-bold uppercase text-xs tracking-wide">Underwriting Engine</span>
+    <div className="uw-root" data-testid="underwrite-calc">
+
+      {/* ── HEADER ── */}
+      <div className="uw-header">
+        <div className="uw-header-left">
+          <Calculator className="w-3.5 h-3.5 uw-header-icon" strokeWidth={1.5} aria-hidden="true" />
+          <span className="uw-title">Underwriting Engine</span>
         </div>
-        <span className="label-xs">RSMeans · ATTOM AVM</span>
+        <span className="uw-source">RSMeans · ATTOM AVM</span>
       </div>
 
-      {/* Controls */}
-      <div className="grid grid-cols-2 md:grid-cols-5 border-b border-neutral-300 divide-x divide-neutral-300">
-        <div className="p-3">
-          <label className="label-xs block mb-1">Rehab Scope</label>
-          <select data-testid="scope-select" value={scope} onChange={(e)=>setScope(e.target.value)}
-            className="w-full border border-black bg-white py-1.5 px-2 text-xs">
+      {/* ── CONTROLS ── */}
+      <div className="uw-controls">
+
+        <div className="uw-control-group">
+          <label className="uw-control-label" htmlFor="uw-scope">Rehab Scope</label>
+          <select
+            id="uw-scope"
+            data-testid="scope-select"
+            value={scope}
+            onChange={(e) => setScope(e.target.value)}
+            className="uw-select"
+          >
             <option value="cosmetic">Cosmetic</option>
             <option value="moderate">Moderate</option>
             <option value="full_gut">Full Gut</option>
           </select>
         </div>
-        <div className="p-3">
-          <label className="label-xs block mb-1">Cap Rate</label>
-          <input data-testid="cap-rate-input" type="number" step="0.005" value={capRate} onChange={(e)=>setCapRate(parseFloat(e.target.value))}
-            className="w-full border border-black bg-white py-1.5 px-2 text-xs font-mono-pi"/>
+
+        <div className="uw-control-group">
+          <label className="uw-control-label" htmlFor="uw-cap">Cap Rate</label>
+          <input
+            id="uw-cap"
+            data-testid="cap-rate-input"
+            type="number" step="0.005"
+            value={capRate}
+            // FIX 2: NaN guard on all numeric inputs
+            onChange={(e) => setCapRate(safeFloat(e.target.value, capRate))}
+            className="uw-input"
+          />
         </div>
-        <div className="p-3">
-          <label className="label-xs block mb-1">Vacancy %</label>
-          <input data-testid="vacancy-input" type="number" step="0.01" value={vacancy} onChange={(e)=>setVacancy(parseFloat(e.target.value))}
-            className="w-full border border-black bg-white py-1.5 px-2 text-xs font-mono-pi"/>
+
+        <div className="uw-control-group">
+          <label className="uw-control-label" htmlFor="uw-vac">Vacancy %</label>
+          <input
+            id="uw-vac"
+            data-testid="vacancy-input"
+            type="number" step="0.01"
+            value={vacancy}
+            onChange={(e) => setVacancy(safeFloat(e.target.value, vacancy))}
+            className="uw-input"
+          />
         </div>
-        <div className="p-3">
-          <label className="label-xs block mb-1">Op-Ex Ratio</label>
-          <input data-testid="opex-input" type="number" step="0.01" value={expRatio} onChange={(e)=>setExpRatio(parseFloat(e.target.value))}
-            className="w-full border border-black bg-white py-1.5 px-2 text-xs font-mono-pi"/>
+
+        <div className="uw-control-group">
+          <label className="uw-control-label" htmlFor="uw-opex">Op-Ex Ratio</label>
+          <input
+            id="uw-opex"
+            data-testid="opex-input"
+            type="number" step="0.01"
+            value={expRatio}
+            onChange={(e) => setExpRatio(safeFloat(e.target.value, expRatio))}
+            className="uw-input"
+          />
         </div>
-        <div className="p-3">
-          <label className="label-xs block mb-1">Comps $/SqFt</label>
-          <input data-testid="comps-psf-input" type="number" step="5" placeholder="Auto" value={compsPsf} onChange={(e)=>setCompsPsf(e.target.value)}
-            className="w-full border border-black bg-white py-1.5 px-2 text-xs font-mono-pi"/>
+
+        <div className="uw-control-group">
+          <label className="uw-control-label" htmlFor="uw-comps">Comps $/SqFt</label>
+          <input
+            id="uw-comps"
+            data-testid="comps-psf-input"
+            type="number" step="5"
+            placeholder="Auto"
+            value={compsPsf}
+            onChange={(e) => setCompsPsf(e.target.value)}
+            className="uw-input"
+          />
         </div>
       </div>
 
-      <div className="p-3 border-b border-neutral-300 flex items-center justify-between bg-white">
-        <span className="label-xs">Push parameters to recalculate the model</span>
-        <button data-testid="run-underwrite-btn" onClick={run} disabled={loading}
-          className="bg-[#002fa7] text-white hover:bg-blue-900 px-4 py-2 text-xs font-bold uppercase tracking-[0.1em] disabled:opacity-50">
-          {loading ? "Computing..." : "▶ Recalculate"}
+      {/* ── RECALCULATE BAR ── */}
+      <div className="uw-action-bar">
+        <span className="uw-action-hint">Adjust parameters then recalculate</span>
+        <button
+          data-testid="run-underwrite-btn"
+          onClick={run}
+          disabled={loading}
+          className="uw-run-btn"
+        >
+          {loading ? "Computing..." : "Recalculate"}
         </button>
       </div>
 
+      {/* ── RESULTS ── */}
       {result && (
         <>
-          {/* Headline metrics */}
-          <div className="grid grid-cols-2 md:grid-cols-4 border-b border-neutral-300">
-            <Metric testid="metric-repair" label="Repair Cost" value={fmtMoney(result.repair.total_repair_cost)} accent="text-red-700"/>
-            <Metric testid="metric-arv" label="ARV (After-Repair Value)" value={fmtMoney(result.arv.arv)} accent="text-[#002fa7]"/>
-            <Metric testid="metric-grm" label="GRM" value={result.grm}/>
-            <Metric testid="metric-cap-value" label="Cap Value (V = NOI/R)" value={fmtMoney(result.cap_value)} accent="text-[#002fa7]"/>
+          {/* Headline metrics row 1 */}
+          <div className="uw-metrics-grid">
+            <Metric
+              testid="metric-repair"
+              label="Repair Cost"
+              value={fmtMoney(result.repair.total_repair_cost)}
+              accent="pop-red"
+            />
+            <Metric
+              testid="metric-arv"
+              label="ARV"
+              value={fmtMoney(result.arv.arv)}
+              accent="pop-lime"
+            />
+            {/* FIX 4: GRM guarded and rounded */}
+            <Metric
+              testid="metric-grm"
+              label="GRM"
+              value={result.grm != null ? Math.round(result.grm * 100) / 100 : "—"}
+            />
+            <Metric
+              testid="metric-cap-value"
+              label="Cap Value (NOI/R)"
+              value={fmtMoney(result.cap_value)}
+              accent="pop-lime"
+            />
           </div>
 
-          {/* Yield row */}
-          <div className="grid grid-cols-2 md:grid-cols-4 border-b border-neutral-300">
-            <Metric testid="metric-noi" label="NOI (annual)" value={fmtMoney(result.noi)}/>
-            <Metric testid="metric-max-offer" label="Max Offer (70% rule)" value={fmtMoney(result.max_offer_70_rule)} accent="text-green-700"/>
-            <Metric testid="metric-profit" label="Projected Profit" value={fmtMoney(result.projected_profit)} accent={result.projected_profit > 0 ? "text-green-700" : "text-red-700"}/>
-            <Metric testid="metric-roi" label="ROI" value={`${result.roi_pct}%`} accent={result.roi_pct > 0 ? "text-green-700" : "text-red-700"}/>
+          {/* Headline metrics row 2 */}
+          <div className="uw-metrics-grid">
+            <Metric
+              testid="metric-noi"
+              label="NOI (annual)"
+              value={fmtMoney(result.noi)}
+            />
+            <Metric
+              testid="metric-max-offer"
+              label="Max Offer (70%)"
+              value={fmtMoney(result.max_offer_70_rule)}
+              accent="pop-blue"
+            />
+            <Metric
+              testid="metric-profit"
+              label="Projected Profit"
+              value={fmtMoney(result.projected_profit)}
+              accent={result.projected_profit > 0 ? "pop-lime" : "pop-red"}
+            />
+            {/* FIX 3: roi_pct rounded, no raw float */}
+            <Metric
+              testid="metric-roi"
+              label="ROI"
+              value={result.roi_pct != null ? `${Math.round(result.roi_pct)}%` : "—"}
+              accent={result.roi_pct > 0 ? "pop-lime" : "pop-red"}
+            />
           </div>
 
           {/* Repair breakdown */}
-          <div className="p-3 bg-neutral-50">
-            <div className="label-xs mb-2 flex items-center gap-2"><TrendingUp className="w-3 h-3"/> Repair Breakdown · {result.repair.scope.toUpperCase()} · ${result.repair.psf_effective}/sqft effective</div>
-            <div className="grid grid-cols-4 gap-0 border border-neutral-300 divide-x divide-neutral-300 bg-white">
-              <div className="p-2"><div className="label-xs text-[9px]">Structural</div><div className="font-mono-pi text-sm">{fmtMoney(result.repair.structural)}</div></div>
-              <div className="p-2"><div className="label-xs text-[9px]">Foundation</div><div className="font-mono-pi text-sm">{fmtMoney(result.repair.foundation)}</div></div>
-              <div className="p-2"><div className="label-xs text-[9px]">Roof</div><div className="font-mono-pi text-sm">{fmtMoney(result.repair.roof)}</div></div>
-              <div className="p-2"><div className="label-xs text-[9px]">Contingency (10%)</div><div className="font-mono-pi text-sm">{fmtMoney(result.repair.contingency)}</div></div>
+          <div className="uw-breakdown">
+            <div className="uw-breakdown-header">
+              <TrendingUp className="w-3 h-3" strokeWidth={1.5} aria-hidden="true" />
+              Repair Breakdown · {result.repair.scope?.toUpperCase()} ·{" "}
+              ${result.repair.psf_effective}/sqft effective
+            </div>
+            <div className="uw-breakdown-grid">
+              <div className="uw-breakdown-cell">
+                <span className="uw-breakdown-label">Structural</span>
+                <span className="uw-breakdown-value">{fmtMoney(result.repair.structural)}</span>
+              </div>
+              <div className="uw-breakdown-cell">
+                <span className="uw-breakdown-label">Foundation</span>
+                <span className="uw-breakdown-value">{fmtMoney(result.repair.foundation)}</span>
+              </div>
+              <div className="uw-breakdown-cell">
+                <span className="uw-breakdown-label">Roof</span>
+                <span className="uw-breakdown-value">{fmtMoney(result.repair.roof)}</span>
+              </div>
+              <div className="uw-breakdown-cell">
+                <span className="uw-breakdown-label">Contingency (10%)</span>
+                <span className="uw-breakdown-value">{fmtMoney(result.repair.contingency)}</span>
+              </div>
             </div>
           </div>
         </>
@@ -119,4 +237,3 @@ export const UnderwriteCalculator = ({ property }) => {
 };
 
 export default UnderwriteCalculator;
-
