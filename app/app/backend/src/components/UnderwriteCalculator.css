@@ -1,0 +1,286 @@
+/* ─────────────────────────────────────────────────
+   UnderwriteCalculator.css
+   Terminal skin — same vocabulary throughout.
+   Accent semantics for financial output:
+     pop-lime  = positive (ARV, cap value, profit +, ROI +)
+     pop-red   = cost / negative (repair cost, loss)
+     pop-blue  = max offer / ceiling
+───────────────────────────────────────────────── */
+
+/* ─────────────────────────────────────────────────
+   ACCENT UTILITIES
+   (mirrors dashboard / detail page tokens)
+───────────────────────────────────────────────── */
+.pop-lime { color: #DEFF9A !important; }
+.pop-red  { color: #FF4D4D !important; }
+.pop-blue { color: #00A3FF !important; }
+
+/* ─────────────────────────────────────────────────
+   ROOT
+───────────────────────────────────────────────── */
+.uw-root {
+  background: #000000;
+  border: 1px solid #1a1a1a;
+}
+
+/* ─────────────────────────────────────────────────
+   HEADER
+───────────────────────────────────────────────── */
+.uw-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 9px 14px;
+  background: #050505;
+  border-bottom: 1px solid #1a1a1a;
+}
+
+.uw-header-left {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+
+.uw-header-icon {
+  color: #DEFF9A;
+  flex-shrink: 0;
+}
+
+.uw-title {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 9px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: #ffffff;
+}
+
+.uw-source {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 8px;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: #2a2a2a;
+}
+
+/* ─────────────────────────────────────────────────
+   CONTROLS
+───────────────────────────────────────────────── */
+.uw-controls {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  border-bottom: 1px solid #1a1a1a;
+}
+
+@media (max-width: 860px) {
+  .uw-controls {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+.uw-control-group {
+  padding: 9px 10px;
+  border-right: 1px solid #111;
+}
+
+.uw-control-group:last-child {
+  border-right: none;
+}
+
+.uw-control-label {
+  display: block;
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 8px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: #2a2a2a;
+  margin-bottom: 5px;
+}
+
+.uw-input,
+.uw-select {
+  width: 100%;
+  background: #080808;
+  border: 1px solid #1e1e1e;
+  color: #aaa;
+  padding: 5px 8px;
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 10px;
+  outline: none;
+  border-radius: 0;
+  appearance: none;
+  -webkit-appearance: none;
+  transition: border-color 0.12s;
+}
+
+.uw-input:focus,
+.uw-select:focus {
+  border-color: #DEFF9A;
+  color: #ffffff;
+}
+
+.uw-input::placeholder {
+  color: #2a2a2a;
+}
+
+/* ─────────────────────────────────────────────────
+   ACTION BAR
+───────────────────────────────────────────────── */
+.uw-action-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 7px 12px;
+  background: #030303;
+  border-bottom: 1px solid #1a1a1a;
+}
+
+.uw-action-hint {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 9px;
+  color: #222;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+/* FIX 5: bg-[#002fa7] replaced with system lime */
+.uw-run-btn {
+  background: #DEFF9A;
+  color: #000000;
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 9px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  padding: 6px 16px;
+  border: none;
+  cursor: pointer;
+  transition: background-color 0.1s;
+}
+
+.uw-run-btn:hover:not(:disabled) {
+  background: #ffffff;
+}
+
+.uw-run-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+/* ─────────────────────────────────────────────────
+   METRIC GRID
+───────────────────────────────────────────────── */
+.uw-metrics-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  border-bottom: 1px solid #111;
+}
+
+@media (max-width: 640px) {
+  .uw-metrics-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+.uw-metric {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  padding: 10px 12px;
+  border-right: 1px solid #111;
+}
+
+.uw-metric:last-child {
+  border-right: none;
+}
+
+/* Even columns on mobile: restore right border for col 1 */
+@media (max-width: 640px) {
+  .uw-metric:nth-child(2n) {
+    border-right: none;
+  }
+  .uw-metric:nth-child(2n+1) {
+    border-right: 1px solid #111;
+  }
+}
+
+.uw-metric-label {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 8px;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: #2a2a2a;
+  line-height: 1.3;
+}
+
+/* FIX 5: no light-mode color classes — accent via pop-* utilities */
+.uw-metric-value {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 13px;
+  font-weight: 700;
+  color: #ffffff;
+  letter-spacing: 0.01em;
+  line-height: 1.2;
+}
+
+/* ─────────────────────────────────────────────────
+   REPAIR BREAKDOWN
+───────────────────────────────────────────────── */
+.uw-breakdown {
+  background: #030303;
+  padding: 10px 12px 12px;
+}
+
+.uw-breakdown-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 8px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: #2a2a2a;
+  margin-bottom: 8px;
+}
+
+.uw-breakdown-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  border: 1px solid #111;
+}
+
+@media (max-width: 640px) {
+  .uw-breakdown-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+.uw-breakdown-cell {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  padding: 8px 10px;
+  border-right: 1px solid #111;
+  background: #000000;
+}
+
+.uw-breakdown-cell:last-child {
+  border-right: none;
+}
+
+.uw-breakdown-label {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 7px;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: #222;
+}
+
+.uw-breakdown-value {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 11px;
+  font-weight: 700;
+  color: #888;
+}
