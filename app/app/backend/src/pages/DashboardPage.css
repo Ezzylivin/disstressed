@@ -78,7 +78,7 @@
   font-size: 9px;
   text-transform: uppercase;
   letter-spacing: 0.15em;
-  color: #555555;
+  color: #888888;
 }
 
 .kpi-value {
@@ -114,7 +114,7 @@
 .cmd-strip-count {
   font-family: 'IBM Plex Mono', monospace;
   font-size: 10px;
-  color: #444444;
+  color: #888888;
   text-transform: uppercase;
   letter-spacing: 0.05em;
 }
@@ -259,7 +259,7 @@
 .card-city {
   font-family: 'IBM Plex Mono', monospace;
   font-size: 10px;
-  color: #444444;
+  color: #999999;
   margin-bottom: 0.75rem;
 }
 
@@ -273,7 +273,7 @@
 .card-stat-label {
   font-family: 'IBM Plex Mono', monospace;
   font-size: 9px;
-  color: #444444;
+  color: #777777;
   text-transform: uppercase;
   letter-spacing: 0.06em;
   display: block;
@@ -364,7 +364,7 @@
   font-size: 9px;
   text-transform: uppercase;
   letter-spacing: 0.1em;
-  color: #333333;
+  color: #777777;
   margin-bottom: 4px;
 }
 
@@ -405,7 +405,7 @@
   font-size: 9px;
   text-transform: uppercase;
   letter-spacing: 0.08em;
-  color: #333333;
+  color: #777777;
   margin-bottom: 3px;
 }
 
