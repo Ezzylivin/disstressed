@@ -1,133 +1,216 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { AppShell } from "../components/AppShell";
 import { api } from "../lib/api";
 import { toast } from "sonner";
-import { UploadCloud, Play, CheckCircle2, ShieldAlert } from "lucide-react";
+import { UploadCloud, Play, ShieldAlert, CheckCircle2 } from "lucide-react";
+import "./ImportPage.css";
+
+// ─────────────────────────────────────────────────────────────────────────────
+// BUG 1 FIX: Real CSV parser that handles quoted fields containing commas.
+// e.g.  "123 Main St, Apt 4",Philadelphia,PA  →  3 fields, not 4.
+// ─────────────────────────────────────────────────────────────────────────────
+function parseCSV(text) {
+  const rows = [];
+  const lines = text.split(/\r?\n/);
+  for (const line of lines) {
+    if (!line.trim()) continue;
+    const fields = [];
+    let current = "";
+    let inQuotes = false;
+    for (let i = 0; i < line.length; i++) {
+      const ch = line[i];
+      if (ch === '"') {
+        // Handle escaped double-quote inside a quoted field ("")
+        if (inQuotes && line[i + 1] === '"') { current += '"'; i++; }
+        else { inQuotes = !inQuotes; }
+      } else if (ch === "," && !inQuotes) {
+        fields.push(current.trim());
+        current = "";
+      } else {
+        current += ch;
+      }
+    }
+    fields.push(current.trim());
+    rows.push(fields);
+  }
+  return rows;
+}
+
+// BUG 4 FIX: read internal key from env var so operators don't have to
+// type it in — the input field is a fallback when the var isn't set.
+const ENV_KEY = import.meta.env.VITE_INTERNAL_KEY || "";
+
+const BATCH_SIZE = 10; // concurrent requests per wave
 
 export default function ImportPage() {
-  const [csvData, setCsvData] = useState([]);
-  const [headers, setHeaders] = useState([]);
-  const [systemKey, setSystemKey] = useState("");
-  const [mappings, setMappings] = useState({
-    site_address: "",
-    city: "",
-    state: "",
+  const [csvData,    setCsvData]    = useState([]);
+  const [headers,    setHeaders]    = useState([]);
+  const [systemKey,  setSystemKey]  = useState(ENV_KEY);
+  const [mappings,   setMappings]   = useState({
+    site_address:  "",
+    city:          "",
+    state:         "",
     distress_type: "",
   });
   const [processing, setProcessing] = useState(false);
-  const [progress, setProgress] = useState({ current: 0, total: 0 });
+  const [progress,   setProgress]   = useState({ current: 0, total: 0 });
+  const [done,       setDone]       = useState(null); // { successes, total }
+  const fileRef = useRef(null);
 
   const handleFileUpload = (e) => {
     const file = e.target.files[0];
     if (!file) return;
 
+    setDone(null);
     const reader = new FileReader();
+
+    // BUG 2 FIX: handle file read errors explicitly
+    reader.onerror = () => toast.error("Failed to read file — check that it's a valid UTF-8 CSV");
+
     reader.onload = (event) => {
-      const text = event.target.result;
-      const lines = text.split("\n").map(line => line.split(",").map(cell => cell.replace(/^["']|["']$/g, "").trim()));
-      
-      if (lines.length > 0) {
-        const rawHeaders = lines[0];
-        setHeaders(rawHeaders);
-        // Store lines without headers and filter out empty arrays
-        const rows = lines.slice(1).filter(r => r.length === rawHeaders.length && r.some(c => c !== ""));
-        setCsvData(rows);
-        
-        // Dynamic smart guessing for data headers
-        setMappings({
-          site_address: rawHeaders.find(h => h.toLowerCase().includes("address")) || "",
-          city: rawHeaders.find(h => h.toLowerCase().includes("city")) || "",
-          state: rawHeaders.find(h => h.toLowerCase().includes("state")) || "",
-          distress_type: rawHeaders.find(h => h.toLowerCase().includes("status") || h.toLowerCase().includes("distress")) || "",
-        });
-        toast.success(`Cached ${rows.length} rows from spreadsheet`);
+      const rows = parseCSV(event.target.result); // BUG 1 FIX: proper parser
+      if (rows.length < 2) {
+        toast.error("CSV appears empty or has no data rows");
+        return;
       }
+      const rawHeaders = rows[0];
+      const dataRows   = rows.slice(1).filter(r =>
+        r.length === rawHeaders.length && r.some(c => c !== "")
+      );
+      setHeaders(rawHeaders);
+      setCsvData(dataRows);
+
+      // Smart header auto-mapping
+      setMappings({
+        site_address:  rawHeaders.find(h => /address/i.test(h))  || "",
+        city:          rawHeaders.find(h => /city/i.test(h))      || "",
+        state:         rawHeaders.find(h => /state/i.test(h))     || "",
+        distress_type: rawHeaders.find(h => /status|distress/i.test(h)) || "",
+      });
+      toast.success(`Loaded ${dataRows.length} rows`);
     };
+
     reader.readAsText(file);
   };
 
+  // BUG 3 FIX: send requests in parallel batches instead of serial one-by-one
   const executeBatchIngestion = async () => {
-    if (!systemKey) {
-      toast.error("Security handshake encryption key required");
+    if (!systemKey.trim()) {
+      toast.error("System key required");
       return;
     }
     if (!mappings.site_address || !mappings.city || !mappings.state) {
-      toast.error("Core localization maps must be explicitly matched");
+      toast.error("Address, city, and state columns must be mapped");
       return;
     }
 
+    const addrIdx    = headers.indexOf(mappings.site_address);
+    const cityIdx    = headers.indexOf(mappings.city);
+    const stateIdx   = headers.indexOf(mappings.state);
+    const distressIdx= headers.indexOf(mappings.distress_type);
+
     setProcessing(true);
+    setDone(null);
     setProgress({ current: 0, total: csvData.length });
 
     let successes = 0;
-    const addrIndex = headers.indexOf(mappings.site_address);
-    const cityIndex = headers.indexOf(mappings.city);
-    const stateIndex = headers.indexOf(mappings.state);
-    const distressIndex = headers.indexOf(mappings.distress_type);
 
-    for (let i = 0; i < csvData.length; i++) {
-      const row = csvData[i];
-      try {
-        const payload = {
-          site_address: row[addrIndex],
-          city: row[cityIndex],
-          state: row[stateIndex],
-          distress_statuses: distressIndex !== -1 && row[distressIndex] ? [row[distressIndex]] : ["Tax Delinquent"],
-          vacant: false
-        };
-
-        await api.post("/admin/ingest-hybrid", payload, {
-          headers: { "X-PropIntel-Key": systemKey }
-        });
-        successes++;
-      } catch (err) {
-        console.error("Row deployment rejection:", err);
-      }
-      setProgress(p => ({ ...p, current: i + 1 }));
+    for (let i = 0; i < csvData.length; i += BATCH_SIZE) {
+      const batch = csvData.slice(i, i + BATCH_SIZE);
+      const results = await Promise.allSettled(
+        batch.map((row) => {
+          const payload = {
+            site_address:      row[addrIdx]    || "",
+            city:              row[cityIdx]    || "",
+            state:             row[stateIdx]   || "",
+            distress_statuses: distressIdx !== -1 && row[distressIdx]
+              ? [row[distressIdx]]
+              : ["Tax Delinquent"],
+            vacant: false,
+          };
+          return api.post("/admin/ingest-hybrid", payload, {
+            headers: { "X-PropIntel-Key": systemKey },
+          });
+        })
+      );
+      successes += results.filter(r => r.status === "fulfilled").length;
+      setProgress(p => ({ ...p, current: Math.min(i + BATCH_SIZE, csvData.length) }));
     }
 
     setProcessing(false);
-    setCsvData([]);
-    toast.success(`Ingested ${successes} properties successfully into live data engine`);
+    // BUG 8 FIX: don't clear csvData — keep preview visible, show completion banner
+    setDone({ successes, total: csvData.length });
+    toast.success(`Ingested ${successes} of ${csvData.length} properties`);
   };
+
+  const pct = progress.total > 0
+    ? Math.round((progress.current / progress.total) * 100)
+    : 0;
 
   return (
     <AppShell>
-      <div className="h-full w-full bg-black flex flex-col md:flex-row font-sans text-white overflow-hidden">
-        
-        {/* CONTROL CONFIG FLANK */}
-        <div className="w-full md:w-80 bg-[#050505] border-r border-neutral-900 p-6 flex flex-col justify-between overflow-y-auto shrink-0">
-          <div>
-            <h3 className="text-[#DEFF9A] text-[11px] font-bold uppercase tracking-[0.2em] mb-6">// Ingestion Control</h3>
-            
-            {/* Encryption handshake access gate */}
-            <div className="mb-6">
-              <label className="font-mono text-[9px] uppercase tracking-wider text-neutral-500 block mb-2">Internal System Key</label>
-              <div className="relative">
-                <input type="password" value={systemKey} onChange={(e) => setSystemKey(e.target.value)} placeholder="••••••••••••"
-                  className="w-full bg-[#111] border border-neutral-800 text-xs text-white font-mono p-2 focus:border-[#DEFF9A] outline-none" />
-              </div>
+      <div className="import-root">
+
+        {/* ── LEFT: CONTROL PANEL ── */}
+        <aside className="import-sidebar">
+          <div className="import-sidebar-scroll">
+
+            <div className="import-section-label">// Ingestion Control</div>
+
+            {/* System key — BUG 4 FIX: pre-filled from env var */}
+            <div className="import-field-group">
+              <label className="import-label">Internal System Key</label>
+              <input
+                type="password"
+                value={systemKey}
+                onChange={(e) => setSystemKey(e.target.value)}
+                placeholder="••••••••••••"
+                className="import-input"
+                autoComplete="off"
+              />
+              {ENV_KEY && (
+                <span className="import-hint">// loaded from environment</span>
+              )}
             </div>
 
-            {/* Drag & Drop Anchor Wrapper */}
-            <div className="border border-dashed border-neutral-800 p-4 text-center bg-[#0a0a0a] hover:border-neutral-700 transition-colors relative mb-6">
-              <input type="file" accept=".csv" onChange={handleFileUpload} className="absolute inset-0 opacity-0 cursor-pointer" />
-              <UploadCloud className="w-6 h-6 text-neutral-500 mx-auto mb-2" />
-              <span className="text-xs font-bold uppercase tracking-tight block">Upload County CSV</span>
-              <span className="text-[10px] text-neutral-600 font-mono block mt-1">Plain UTF-8 text files</span>
+            {/* File upload */}
+            <div className="import-upload-zone">
+              <input
+                ref={fileRef}
+                type="file"
+                accept=".csv"
+                onChange={handleFileUpload}
+                className="import-upload-input"
+                aria-label="Upload CSV file"
+              />
+              <UploadCloud className="import-upload-icon" aria-hidden="true" />
+              <span className="import-upload-title">Upload County CSV</span>
+              <span className="import-upload-hint">Plain UTF-8 · quoted fields supported</span>
             </div>
 
-            {/* On-screen Schema Header Mapping Selectors */}
+            {/* Column mappings */}
             {headers.length > 0 && (
-              <div className="space-y-4 border-t border-neutral-900 pt-4">
-                <h4 className="text-[10px] font-mono uppercase text-neutral-400">Map Schema Headers</h4>
+              <div className="import-mappings">
+                <div className="import-section-label" style={{ marginBottom: "10px" }}>
+                  Map Schema Headers
+                </div>
                 {Object.keys(mappings).map((field) => (
-                  <div key={field}>
-                    <label className="font-mono text-[9px] uppercase text-neutral-600 block mb-1">{field.replace("_", " ")}</label>
-                    <select value={mappings[field]} onChange={(e) => setMappings({ ...mappings, [field]: e.target.value })}
-                      className="w-full bg-[#111] border border-neutral-800 text-xs font-mono text-white p-2 outline-none focus:border-[#DEFF9A]">
-                      <option value="">-- Dropdown Match --</option>
-                      {headers.map(h => <option key={h} value={h}>{h}</option>)}
+                  <div key={field} className="import-field-group">
+                    <label className="import-label">
+                      {field.replace(/_/g, " ")}
+                      {["site_address","city","state"].includes(field) && (
+                        <span className="import-required">*</span>
+                      )}
+                    </label>
+                    <select
+                      value={mappings[field]}
+                      onChange={(e) => setMappings({ ...mappings, [field]: e.target.value })}
+                      className="import-select"
+                    >
+                      <option value="">— select column —</option>
+                      {headers.map(h => (
+                        <option key={h} value={h}>{h}</option>
+                      ))}
                     </select>
                   </div>
                 ))}
@@ -135,57 +218,95 @@ export default function ImportPage() {
             )}
           </div>
 
+          {/* Execute button + progress — sticky at bottom */}
           {csvData.length > 0 && (
-            <button onClick={executeBatchIngestion} disabled={processing}
-              className="w-full bg-[#DEFF9A] hover:bg-white text-black font-mono text-xs font-bold uppercase p-3 tracking-wider flex items-center justify-center gap-2 mt-6 transition-colors">
-              <Play className="w-4 h-4 fill-current" /> {processing ? `Streaming ${progress.current}/${progress.total}` : "Execute Core Load"}
-            </button>
+            <div className="import-sidebar-footer">
+              {/* BUG 7 FIX: visual progress bar */}
+              {processing && (
+                <div className="import-progress">
+                  <div className="import-progress-bar">
+                    <div className="import-progress-fill" style={{ width: `${pct}%` }} />
+                  </div>
+                  <span className="import-progress-label">
+                    {progress.current} / {progress.total} rows
+                  </span>
+                </div>
+              )}
+              <button
+                onClick={executeBatchIngestion}
+                disabled={processing}
+                className="import-run-btn"
+              >
+                {/* BUG MINOR FIX: removed fill-current — Lucide uses stroke not fill */}
+                <Play className="w-3.5 h-3.5" aria-hidden="true" />
+                {processing
+                  ? `Ingesting... ${pct}%`
+                  : `Execute — ${csvData.length} Rows`}
+              </button>
+            </div>
           )}
-        </div>
+        </aside>
 
-        {/* INTERACTIVE COMPILING GRID CORE VIEWPORTS */}
-        <div className="flex-1 overflow-auto p-6 bg-black">
+        {/* ── RIGHT: DATA PREVIEW ── */}
+        <div className="import-main">
           {csvData.length === 0 ? (
-            <div className="h-full w-full border border-neutral-900 bg-[#020202] flex flex-col items-center justify-center p-8 text-center">
-              <ShieldAlert className="w-8 h-8 text-neutral-700 mb-3" />
-              <div className="text-xs uppercase font-mono tracking-widest text-neutral-500">// STORAGE MATRIX OFFLINE</div>
-              <p className="text-xs text-neutral-600 max-w-sm mt-2">Load a local county foreclosure or tax default spreadsheet to visualize the live staging matrix layout.</p>
+            <div className="import-empty">
+              <ShieldAlert className="import-empty-icon" aria-hidden="true" />
+              <div className="import-empty-title">// Storage Matrix Offline</div>
+              <p className="import-empty-body">
+                Load a county foreclosure or tax-default CSV to preview and stage the data before ingestion.
+              </p>
             </div>
           ) : (
-            <div className="space-y-4">
-              <div className="flex justify-between items-center border-b border-neutral-900 pb-3">
-                <div className="text-xs uppercase font-mono tracking-wider text-neutral-400">Staging Area Grid Layer</div>
-                <div className="text-xs font-mono text-[#DEFF9A] bg-[#deff9a1a] border border-[#deff9a33] px-2 py-0.5 uppercase">{csvData.length} records armed</div>
+            <div className="import-preview">
+
+              {/* BUG 8 FIX: completion banner shown over data, data stays visible */}
+              {done && (
+                <div className="import-done-banner">
+                  <CheckCircle2 className="w-4 h-4" aria-hidden="true" />
+                  {done.successes} of {done.total} properties ingested
+                  {done.successes < done.total && (
+                    <span className="import-done-failures">
+                      · {done.total - done.successes} failed
+                    </span>
+                  )}
+                </div>
+              )}
+
+              <div className="import-preview-header">
+                <span className="import-preview-label">Staging Grid</span>
+                <span className="import-preview-count">{csvData.length} records</span>
               </div>
-              <div className="w-full overflow-x-auto border border-neutral-900">
-                <table className="w-full border-collapse text-left font-mono text-xs">
+
+              <div className="import-table-wrap">
+                <table className="import-table">
                   <thead>
-                    <tr className="bg-[#050505] text-[#DEFF9A] uppercase border-b border-neutral-900">
+                    <tr>
                       {headers.map((h, i) => (
-                        <th key={i} className="p-3 text-[10px] tracking-wider border-r border-neutral-900 whitespace-nowrap">{h}</th>
+                        <th key={i}>{h}</th>
                       ))}
                     </tr>
                   </thead>
                   <tbody>
                     {csvData.slice(0, 15).map((row, rIdx) => (
-                      <tr key={rIdx} className="border-b border-neutral-900 hover:bg-[#050505] transition-colors">
+                      <tr key={rIdx}>
                         {row.map((cell, cIdx) => (
-                          <td key={cIdx} className="p-3 text-neutral-400 border-r border-neutral-900 max-w-xs truncate">{cell || "—"}</td>
+                          <td key={cIdx}>{cell || "—"}</td>
                         ))}
                       </tr>
                     ))}
                   </tbody>
                 </table>
               </div>
+
               {csvData.length > 15 && (
-                <div className="text-[10px] text-neutral-600 font-mono text-right italic">
-                  * Showing initial 15 rows preview. All {csvData.length} entries will execute upon core deployment initialization.
+                <div className="import-preview-footnote">
+                  Showing first 15 of {csvData.length} rows — all rows execute on ingestion
                 </div>
               )}
             </div>
           )}
         </div>
-
       </div>
     </AppShell>
   );
