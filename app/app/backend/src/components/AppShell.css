@@ -1,0 +1,275 @@
+/* ─────────────────────────────────────────────────
+   AppShell.css
+   The frame that wraps every page. Must be
+   pixel-consistent with the terminal vocabulary
+   established across Dashboard, Detail, and Lists.
+───────────────────────────────────────────────── */
+
+/* ─────────────────────────────────────────────────
+   ROOT SHELL
+───────────────────────────────────────────────── */
+.shell-root {
+  height: 100vh;
+  width: 100vw;
+  display: flex;
+  flex-direction: column;
+  background: #000000;
+  color: #ffffff;
+  font-family: 'Urbanist', sans-serif; /* FIX: explicit — not font-sans */
+
+  /* Global text selection uses the lime accent */
+  --selection-bg: #DEFF9A;
+  --selection-color: #000000;
+}
+
+.shell-root ::selection {
+  background: var(--selection-bg);
+  color: var(--selection-color);
+}
+
+/* ─────────────────────────────────────────────────
+   COMMAND HEADER
+───────────────────────────────────────────────── */
+.shell-header {
+  height: 48px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 1rem;
+  background: #000000;
+  border-bottom: 1px solid #1a1a1a;
+  flex-shrink: 0;
+  position: relative;
+  z-index: 40;
+}
+
+.shell-header-left {
+  display: flex;
+  align-items: center;
+  gap: 0; /* logo and nav share the same baseline */
+  height: 100%;
+}
+
+/* ─────────────────────────────────────────────────
+   LOGO
+───────────────────────────────────────────────── */
+.shell-logo {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  text-decoration: none;
+  padding-right: 1.5rem;
+  border-right: 1px solid #1a1a1a;
+  height: 100%;
+}
+
+.shell-logo:hover .shell-logo-tag {
+  color: #DEFF9A;
+}
+
+.shell-logo-icon {
+  width: 18px;
+  height: 18px;
+  color: #DEFF9A;
+  flex-shrink: 0;
+}
+
+.shell-logo-name {
+  font-family: 'Urbanist', sans-serif;
+  font-size: 17px;
+  font-weight: 900;
+  text-transform: uppercase;
+  letter-spacing: -0.02em;
+  color: #ffffff;
+  white-space: nowrap;
+}
+
+.shell-logo-divider {
+  display: none; /* hidden below sm */
+  width: 1px;
+  height: 14px;
+  background: #222;
+  flex-shrink: 0;
+}
+
+.shell-logo-tag {
+  display: none; /* hidden below sm */
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 9px;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: #333;
+  transition: color 0.15s;
+  white-space: nowrap;
+}
+
+.shell-logo-status {
+  color: #DEFF9A;
+  opacity: 0.5;
+}
+
+@media (min-width: 640px) {
+  .shell-logo-divider,
+  .shell-logo-tag {
+    display: block;
+  }
+}
+
+/* ─────────────────────────────────────────────────
+   NAV
+   Active pip is a TOP border so it's visually
+   distinct from the header's own bottom border.
+───────────────────────────────────────────────── */
+.shell-nav {
+  display: flex;
+  align-items: center;
+  height: 100%;
+  padding-left: 0.5rem;
+}
+
+.shell-nav-item {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0 14px;
+  height: 100%;
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 9px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.15em;
+  color: #3a3a3a;
+  text-decoration: none;
+  transition: color 0.12s, background-color 0.12s;
+  white-space: nowrap;
+}
+
+.shell-nav-item:hover {
+  color: #888;
+  background: #080808;
+}
+
+.shell-nav-item.active {
+  color: #ffffff;
+  background: #0a0a0a;
+}
+
+/* Active pip — top edge, lime, inset so it reads as "selected tab from above" */
+.shell-nav-pip {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: #DEFF9A;
+}
+
+.shell-nav-icon {
+  width: 13px;
+  height: 13px;
+  flex-shrink: 0;
+  /* inherits color from parent */
+}
+
+/* Hide label text on very small screens, show icon only */
+@media (max-width: 480px) {
+  .shell-nav-label {
+    display: none;
+  }
+
+  .shell-nav-item {
+    padding: 0 12px;
+  }
+
+  .shell-logo-name {
+    font-size: 15px;
+  }
+}
+
+/* ─────────────────────────────────────────────────
+   RIGHT: USER + LOGOUT
+───────────────────────────────────────────────── */
+.shell-header-right {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.shell-user {
+  display: none; /* hidden below md */
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 2px;
+}
+
+@media (min-width: 768px) {
+  .shell-user {
+    display: flex;
+  }
+}
+
+.shell-user-role {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 8px;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: #DEFF9A;
+  line-height: 1;
+}
+
+.shell-user-name {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: #888;
+  line-height: 1;
+  max-width: 180px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.shell-logout {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: none;
+  border: 1px solid #1a1a1a;
+  color: #333;
+  padding: 6px;
+  cursor: pointer;
+  transition: border-color 0.12s, color 0.12s;
+}
+
+.shell-logout:hover {
+  border-color: #FF4D4D;
+  color: #FF4D4D;
+}
+
+.shell-logout:focus-visible {
+  outline: 1px solid #DEFF9A;
+  outline-offset: 2px;
+}
+
+/* ─────────────────────────────────────────────────
+   MAIN CONTENT AREA
+───────────────────────────────────────────────── */
+.shell-main {
+  flex: 1;
+  overflow: hidden;
+  background: #000000;
+}
+
+/* ─────────────────────────────────────────────────
+   REDUCED MOTION
+───────────────────────────────────────────────── */
+@media (prefers-reduced-motion: reduce) {
+  .shell-nav-item,
+  .shell-logo:hover .shell-logo-tag,
+  .shell-logout {
+    transition: none;
+  }
+}
