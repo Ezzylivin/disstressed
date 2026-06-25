@@ -1,161 +1,292 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { Link } from "react-router-dom";
 import { api, fmtMoney } from "../lib/api";
 import { AppShell } from "../components/AppShell";
 import { toast } from "sonner";
-import { FileSpreadsheet, Trash2, Plus, ListChecks, ChevronRight } from "lucide-react";
+import { FileSpreadsheet, Trash2, Plus, ChevronRight } from "lucide-react";
+import "./ListsPage.css";
 
 export default function ListsPage() {
   const [lists, setLists] = useState([]);
   const [expanded, setExpanded] = useState({});
   const [allProps, setAllProps] = useState({});
+  const [loadingProps, setLoadingProps] = useState({}); // per-list loading state
+  const [exportingId, setExportingId] = useState(null); // per-list export guard
+  const [creating, setCreating] = useState(false);
 
-  const load = async () => {
-    const { data } = await api.get("/lists");
-    setLists(data.items || []);
-  };
-  useEffect(() => { load(); }, []);
+  const load = useCallback(async () => {
+    try {
+      const { data } = await api.get("/lists");
+      setLists(data.items || []);
+    } catch {
+      toast.error("Failed to load lists");
+    }
+  }, []);
+
+  useEffect(() => { load(); }, [load]);
 
   const loadProps = async (list) => {
-    if (allProps[list.id]) return;
-    const promises = list.property_ids.map((pid) => api.get(`/properties/${pid}`).then(r => r.data).catch(() => null));
-    const items = (await Promise.all(promises)).filter(Boolean);
-    setAllProps((s) => ({ ...s, [list.id]: items }));
+    if (allProps[list.id] || loadingProps[list.id]) return;
+    if (!list.property_ids?.length) {
+      setAllProps((s) => ({ ...s, [list.id]: [] }));
+      return;
+    }
+    setLoadingProps((s) => ({ ...s, [list.id]: true }));
+    try {
+      const items = await Promise.all(
+        list.property_ids.map((pid) =>
+          api.get(`/properties/${pid}`).then((r) => r.data).catch(() => null)
+        )
+      );
+      setAllProps((s) => ({ ...s, [list.id]: items.filter(Boolean) }));
+    } catch {
+      toast.error("Failed to load list properties");
+    } finally {
+      setLoadingProps((s) => ({ ...s, [list.id]: false }));
+    }
   };
 
   const toggle = (l) => {
-    setExpanded((s) => ({ ...s, [l.id]: !s[l.id] }));
-    loadProps(l);
+    setExpanded((s) => {
+      const next = !s[l.id];
+      if (next) loadProps(l);
+      return { ...s, [l.id]: next };
+    });
   };
 
   const createNew = async () => {
+    if (creating) return;
     const name = prompt("Name for new list?");
     if (!name) return;
-    await api.post("/lists", { name, property_ids: [] });
-    toast.success("List created");
-    load();
+    setCreating(true);
+    try {
+      await api.post("/lists", { name, property_ids: [] });
+      toast.success(`Created "${name}"`);
+      load();
+    } catch {
+      toast.error("Failed to create list");
+    } finally {
+      setCreating(false);
+    }
   };
 
   const removeList = async (l) => {
     if (!window.confirm(`Delete list "${l.name}"?`)) return;
-    await api.delete(`/lists/${l.id}`);
-    toast.success("List deleted");
-    load();
+    try {
+      await api.delete(`/lists/${l.id}`);
+      toast.success("List deleted");
+      load();
+    } catch {
+      toast.error("Failed to delete list");
+    }
   };
 
   const removeProp = async (lid, pid) => {
-    await api.post(`/lists/${lid}/remove/${pid}`);
-    setAllProps((s) => { const n = {...s}; delete n[lid]; return n; });
-    load();
-    toast.success("Removed");
+    try {
+      await api.post(`/lists/${lid}/remove/${pid}`);
+      // Invalidate cached props for this list so it reloads fresh on next expand
+      setAllProps((s) => { const n = { ...s }; delete n[lid]; return n; });
+      load();
+      toast.success("Property removed");
+    } catch {
+      toast.error("Failed to remove property");
+    }
   };
 
+  // FIX: per-list export guard + deferred blob revoke
   const exportList = async (l) => {
-    if (!l.property_ids?.length) { toast.error("Empty list"); return; }
+    if (!l.property_ids?.length) { toast.error("List is empty"); return; }
+    if (exportingId === l.id) return;
+    setExportingId(l.id);
     try {
       const res = await api.get(`/lists/${l.id}/export`, { responseType: "blob" });
       const url = URL.createObjectURL(res.data);
       const a = document.createElement("a");
-      a.href = url; a.download = `propintel_${l.name}.xlsx`; a.click();
-      URL.revokeObjectURL(url);
-      toast.success("Exported");
-    } catch { toast.error("Export failed"); }
+      a.href = url;
+      a.download = `propintel_${l.name.replace(/\s+/g, "_")}.xlsx`;
+      a.click();
+      setTimeout(() => URL.revokeObjectURL(url), 2000);
+      toast.success(`Exported "${l.name}"`);
+    } catch {
+      toast.error("Export failed");
+    } finally {
+      setExportingId(null);
+    }
   };
 
   return (
     <AppShell>
-      <div className="h-full overflow-y-auto p-6 bg-neutral-50">
-        <div className="max-w-6xl mx-auto">
-          <div className="flex items-end justify-between mb-6 pb-4 border-b border-black">
-            <div>
-              <div className="label-xs">/ saved selections</div>
-              <h1 className="font-display font-black uppercase text-3xl tracking-tight">Lists & Excel Export</h1>
-              <p className="text-xs text-neutral-600 mt-2 max-w-xl">Curate filtered, skip-traced opportunities. Each list exports to a 9-column Excel sheet matching the PropIntel schema (Account ID → Repair Cost → ARV → Verified Mobile Lines → Email).</p>
+      <div className="lists-root">
+
+        {/* ── PAGE HEADER ── */}
+        <div className="lists-header">
+          {/* Ghost count — same signature technique as detail page equity ghost */}
+          <span className="lists-ghost" aria-hidden="true">{lists.length}</span>
+          <div className="lists-header-inner">
+            <div className="lists-header-text">
+              <div className="lists-eyebrow">// Saved Selections</div>
+              <h1 className="lists-title">Target Lists</h1>
+              <p className="lists-subtitle">
+                Curate filtered, skip-traced opportunities. Each list exports to a 9-column Excel sheet
+                matching the PropIntel schema — Account ID → Repair Cost → ARV → Verified Mobile → Email.
+              </p>
             </div>
-            <button data-testid="new-list-btn" onClick={createNew}
-              className="flex items-center gap-2 bg-black text-white hover:bg-neutral-800 px-4 py-2 text-xs font-bold uppercase tracking-[0.15em]">
-              <Plus className="w-3.5 h-3.5"/> New List
+            <button
+              data-testid="new-list-btn"
+              onClick={createNew}
+              disabled={creating}
+              className="btn-new-list"
+            >
+              <Plus className="w-3.5 h-3.5" />
+              {creating ? "Creating..." : "New List"}
             </button>
           </div>
+        </div>
 
+        {/* ── CONTENT ── */}
+        <div className="lists-content">
+
+          {/* Empty state */}
           {lists.length === 0 && (
-            <div className="border border-neutral-300 bg-white p-12 text-center" data-testid="empty-lists">
-              <ListChecks className="w-10 h-10 mx-auto text-neutral-400" strokeWidth={1.5}/>
-              <div className="font-display font-bold uppercase text-base mt-4">No Lists Yet</div>
-              <p className="text-xs text-neutral-500 mt-2 max-w-sm mx-auto">Build a list from the Intelligence dashboard by selecting properties and clicking "+ List".</p>
-              <Link to="/dashboard" className="inline-block mt-4 bg-[#002fa7] text-white hover:bg-blue-900 px-4 py-2 text-xs font-bold uppercase tracking-[0.15em]">
-                Go to Dashboard <ChevronRight className="inline w-3 h-3"/>
+            <div className="lists-empty" data-testid="empty-lists">
+              <div className="lists-empty-icon" aria-hidden="true">[ ]</div>
+              <div className="lists-empty-title">No Lists On File</div>
+              <p className="lists-empty-body">
+                Build a list from the Intelligence dashboard — select properties and click "+ Save to CRM List".
+              </p>
+              <Link to="/dashboard" className="btn-goto-dashboard">
+                Go to Dashboard <ChevronRight className="w-3 h-3" />
               </Link>
             </div>
           )}
 
-          <div className="space-y-0 border border-neutral-300 bg-white">
-            {lists.map((l) => (
-              <div key={l.id} className="border-b border-neutral-300 last:border-b-0" data-testid={`list-row-${l.id}`}>
-                <div className="flex items-center justify-between px-4 py-3 hover:bg-neutral-50 cursor-pointer" onClick={() => toggle(l)}>
-                  <div className="flex items-center gap-3">
-                    <ChevronRight className={`w-4 h-4 transition-transform ${expanded[l.id] ? "rotate-90" : ""}`} strokeWidth={1.5}/>
-                    <div>
-                      <div className="font-display font-bold uppercase text-sm">{l.name}</div>
-                      <div className="label-xs">{l.property_ids?.length || 0} properties · created {new Date(l.created_at).toLocaleDateString()}</div>
+          {/* List rows */}
+          {lists.length > 0 && (
+            <div className="list-table-wrap">
+              {lists.map((l, idx) => (
+                <div
+                  key={l.id}
+                  className={`list-row ${expanded[l.id] ? "expanded" : ""}`}
+                  data-testid={`list-row-${l.id}`}
+                >
+                  {/* Row header */}
+                  <div
+                    className="list-row-header"
+                    onClick={() => toggle(l)}
+                    role="button"
+                    tabIndex={0}
+                    onKeyDown={(e) => e.key === "Enter" && toggle(l)}
+                    aria-expanded={!!expanded[l.id]}
+                  >
+                    <div className="list-row-left">
+                      <span className="list-index" aria-hidden="true">
+                        {String(idx + 1).padStart(2, "0")}
+                      </span>
+                      <ChevronRight
+                        className={`list-chevron ${expanded[l.id] ? "open" : ""}`}
+                        strokeWidth={1.5}
+                      />
+                      <div className="list-meta">
+                        <span className="list-name">{l.name}</span>
+                        <span className="list-details">
+                          {l.property_ids?.length || 0} properties
+                          <span className="list-details-sep" />
+                          {new Date(l.created_at).toLocaleDateString()}
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* Actions — stop propagation so row toggle doesn't fire */}
+                    <div className="list-row-actions" onClick={(e) => e.stopPropagation()}>
+                      <button
+                        data-testid={`export-list-${l.id}`}
+                        onClick={() => exportList(l)}
+                        disabled={exportingId === l.id}
+                        className="btn-export-list"
+                      >
+                        <FileSpreadsheet className="w-3 h-3" />
+                        {exportingId === l.id ? "Exporting..." : "Export (.xlsx)"}
+                      </button>
+                      <button
+                        data-testid={`delete-list-${l.id}`}
+                        onClick={() => removeList(l)}
+                        className="btn-delete-list"
+                        aria-label={`Delete list ${l.name}`}
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
                     </div>
                   </div>
-                  <div className="flex items-center gap-2" onClick={(e)=>e.stopPropagation()}>
-                    <button data-testid={`export-list-${l.id}`} onClick={() => exportList(l)}
-                      className="flex items-center gap-1.5 bg-[#002fa7] text-white hover:bg-blue-900 px-3 py-1.5 text-[11px] font-bold uppercase tracking-[0.1em]">
-                      <FileSpreadsheet className="w-3 h-3"/> Export Excel
-                    </button>
-                    <button data-testid={`delete-list-${l.id}`} onClick={() => removeList(l)}
-                      className="border border-red-600 text-red-600 hover:bg-red-600 hover:text-white p-1.5">
-                      <Trash2 className="w-3 h-3"/>
-                    </button>
-                  </div>
+
+                  {/* Expanded property table */}
+                  {expanded[l.id] && (
+                    <div className="list-props-panel">
+                      {loadingProps[l.id] && (
+                        <div className="list-props-loading">// Loading records...</div>
+                      )}
+
+                      {!loadingProps[l.id] && allProps[l.id]?.length === 0 && (
+                        <div className="list-props-empty">
+                          // Empty list — add properties from the dashboard.
+                        </div>
+                      )}
+
+                      {!loadingProps[l.id] && allProps[l.id]?.length > 0 && (
+                        <table className="props-table">
+                          <thead>
+                            <tr>
+                              <th>APN</th>
+                              <th>Address</th>
+                              <th>Status</th>
+                              <th className="text-right">Market Value</th>
+                              <th>Owner</th>
+                              <th className="text-center">Skip Trace</th>
+                              <th />
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {allProps[l.id].map((p) => (
+                              <tr key={p.id}>
+                                <td className="cell-mono">{p.apn}</td>
+                                <td className="cell-address">
+                                  <Link
+                                    to={`/property/${p.id}`}
+                                    className="prop-link"
+                                  >
+                                    {p.site_address}, {p.city}
+                                  </Link>
+                                </td>
+                                <td className="cell-status">{p.primary_status}</td>
+                                <td className="cell-mono text-right">{fmtMoney(p.market_value)}</td>
+                                <td className="cell-owner">{p.owner_name}</td>
+                                <td className="text-center">
+                                  {p.skip_traced
+                                    ? <span className="badge-traced">Traced</span>
+                                    : <span className="badge-pending">Pending</span>}
+                                </td>
+                                <td className="text-right">
+                                  <button
+                                    onClick={() => removeProp(l.id, p.id)}
+                                    data-testid={`remove-${l.id}-${p.id}`}
+                                    className="btn-remove-prop"
+                                    aria-label="Remove from list"
+                                  >
+                                    <Trash2 className="w-3 h-3" />
+                                  </button>
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      )}
+                    </div>
+                  )}
                 </div>
-                {expanded[l.id] && (
-                  <div className="border-t border-neutral-200 bg-neutral-50">
-                    {allProps[l.id]?.length === 0 && <div className="p-4 text-xs text-neutral-500">Empty list — add properties from the dashboard.</div>}
-                    <table className="w-full text-xs">
-                      <thead className="bg-neutral-100 border-b border-neutral-300">
-                        <tr>
-                          <th className="text-left p-2 label-xs">APN</th>
-                          <th className="text-left p-2 label-xs">Address</th>
-                          <th className="text-left p-2 label-xs">Status</th>
-                          <th className="text-right p-2 label-xs">Market Value</th>
-                          <th className="text-left p-2 label-xs">Owner</th>
-                          <th className="text-right p-2 label-xs">Skip Trace</th>
-                          <th className="p-2"></th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {(allProps[l.id] || []).map((p) => (
-                          <tr key={p.id} className="border-b border-neutral-200 hover:bg-white">
-                            <td className="p-2 font-mono-pi">{p.apn}</td>
-                            <td className="p-2"><Link to={`/property/${p.id}`} className="hover:underline">{p.site_address}, {p.city}</Link></td>
-                            <td className="p-2 text-[10px] uppercase tracking-wide">{p.primary_status}</td>
-                            <td className="p-2 text-right font-mono-pi">{fmtMoney(p.market_value)}</td>
-                            <td className="p-2">{p.owner_name}</td>
-                            <td className="p-2 text-right">
-                              {p.skip_traced
-                                ? <span className="text-[10px] uppercase font-bold bg-[#39ff14] text-black px-1.5 py-0.5">Traced</span>
-                                : <span className="text-[10px] uppercase font-bold border border-neutral-400 text-neutral-500 px-1.5 py-0.5">Pending</span>}
-                            </td>
-                            <td className="p-2 text-right">
-                              <button onClick={() => removeProp(l.id, p.id)} data-testid={`remove-${l.id}-${p.id}`} className="text-red-600 hover:text-red-800">
-                                <Trash2 className="w-3 h-3"/>
-                              </button>
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                )}
-              </div>
-            ))}
-          </div>
+              ))}
+            </div>
+          )}
         </div>
       </div>
     </AppShell>
   );
 }
-
