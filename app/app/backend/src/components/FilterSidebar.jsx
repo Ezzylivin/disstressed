@@ -30,6 +30,42 @@ const AVAILABLE_STATES = [
   { code: "WI", name: "Wisconsin (WI)" }, { code: "WY", name: "Wyoming (WY)" }
 ];
 
+// Add this selection handler near the top of FilterSidebar.jsx:
+const [syncing, setSyncing] = useState(false);
+const [selectedCourthouses, setSelectedCourthouses] = useState(["PA_PHILADELPHIA"]);
+
+const handleLiveCourthouseSync = async () => {
+  setSyncing(true);
+  try {
+    const { data } = await api.post("/courthouse/sync", { courthouses: selectedCourthouses });
+    toast.success(`Success! Pulled ${data.inserted_records} live courthouse leads directly into database.`);
+  } catch (e) {
+    toast.error("Failed to connect to municipal courthouse servers.");
+  } finally {
+    setSyncing(false);
+  }
+};
+
+// Paste this HTML block right inside the sidebar JSX markup panel:
+<div className="border-t border-neutral-900 pt-4 px-3 mb-4">
+  <div className="text-[10px] font-mono-pi uppercase text-neutral-600 mb-2 tracking-widest">// Courthouse Gateways</div>
+  <label className="flex items-center gap-2 text-xs text-neutral-300 py-1.5 cursor-pointer">
+    <input type="checkbox" checked={selectedCourthouses.includes("PA_PHILADELPHIA")} onChange={() => {}} />
+    Philadelphia County Civil Court
+  </label>
+  <label className="flex items-center gap-2 text-xs text-neutral-300 py-1.5 cursor-pointer">
+    <input type="checkbox" checked={selectedCourthouses.includes("TX_HOUSTON")} onChange={() => {}} />
+    Harris County Foreclosure Registry
+  </label>
+  <button 
+    onClick={handleLiveCourthouseSync} 
+    disabled={syncing}
+    className="btn-action-lime w-full mt-3 text-center py-2 text-[10px]"
+  >
+    {syncing ? "Scraping Portals..." : "Sync Selected Courthouses"}
+  </button>
+</div>
+
 export const FilterSidebar = ({ filters, setFilters, stats }) => {
   const set = (k, v) => setFilters((f) => ({ ...f, [k]: v }));
 
