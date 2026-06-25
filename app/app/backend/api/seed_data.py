@@ -3,6 +3,7 @@ from datetime import datetime, timezone, timedelta
 import random
 import uuid
 import sys
+import os  # Environmental driver added to fetch active Google Cloud API keys
 from pathlib import Path
 
 # Directs Python to search the parent root folder for local modules
@@ -189,6 +190,19 @@ def generate_property():
     equity = market_value - mortgage_balance
     equity_pct = round((equity / market_value) * 100, 1) if market_value > 0 else 0
 
+    # DYNAMIC REAL-WORLD GOOGLE STREET VIEW MATRIX LAYER
+    formatted_address = f"{site_address}, {city['city']}, {city['state']} {city['zip']}"
+    google_api_key = os.environ.get("GOOGLE_MAPS_API_KEY", "FREE-DEVELOPER-MODE")
+    
+    if google_api_key != "FREE-DEVELOPER-MODE":
+        image_url = f"https://maps.googleapis.com/maps/api/streetview?size=600x400&location={formatted_address.replace(' ', '+')}&key={google_api_key}"
+    else:
+        image_url = random.choice([
+            "https://images.unsplash.com/photo-1722532851123-b07337a16bfa?crop=entropy&cs=srgb&fm=jpg&q=85&w=940",
+            "https://images.pexels.com/photos/33350023/pexels-photo-33350023.jpeg?auto=compress&cs=tinysrgb&dpr=2&h=650&w=940",
+            "https://images.pexels.com/photos/164558/pexels-photo-164558.jpeg?auto=compress&cs=tinysrgb&dpr=2&h=650&w=940",
+        ])
+
     return {
         "id": pid,
         "apn": apn,
@@ -226,11 +240,7 @@ def generate_property():
         "owner_mailing_address": mailing_address,
         "owner_absentee": absentee,
         "estimated_rent": int(sqft * random.uniform(0.9, 2.2)),
-        "image_url": random.choice([
-            "https://images.unsplash.com/photo-1722532851123-b07337a16bfa?crop=entropy&cs=srgb&fm=jpg&q=85&w=940",
-            "https://images.pexels.com/photos/33350023/pexels-photo-33350023.jpeg?auto=compress&cs=tinysrgb&dpr=2&h=650&w=940",
-            "https://images.pexels.com/photos/164558/pexels-photo-164558.jpeg?auto=compress&cs=tinysrgb&dpr=2&h=650&w=940",
-        ]),
+        "image_url": image_url,
         "history": gen_history(years_owned, purchase_price),
         "skip_traced": False,
         "skip_trace_data": None,
