@@ -1,47 +1,88 @@
 import { fmtMoney } from "../lib/api";
-import { AlertTriangle, Home, MapPin } from "lucide-react";
+import { MapPin } from "lucide-react";
+import "./PropertyCard.css";
 
-const tagColor = (s) => {
-  if (s.includes("Pre-Foreclosure") || s.includes("NOD") || s.includes("Lis")) return "bg-red-50 text-red-700 border-red-300";
-  if (s.includes("Tax Delinquent")) return "bg-yellow-50 text-yellow-800 border-yellow-400";
-  if (s.includes("Vacant")) return "bg-blue-50 text-blue-800 border-blue-300";
-  return "bg-neutral-100 text-neutral-700 border-neutral-300";
+// FIX 4: dark-system badge classes — no light-mode Tailwind color utilities
+const distressBadgeClass = (s) => {
+  if (s.includes("Pre-Foreclosure") || s.includes("NOD") || s.includes("Lis"))
+    return "badge-foreclosure";
+  if (s.includes("Tax Delinquent"))
+    return "badge-tax";
+  if (s.includes("Vacant"))
+    return "badge-vacant";
+  return "badge-default";
 };
 
+const distressLabel = (s) => s.replace("Tax Delinquent - ", "TD ");
+
 export const PropertyCard = ({ p, selected, onClick }) => {
+  const hasImage = !!p.image_url;
+
   return (
     <div
       data-testid={`property-card-${p.id}`}
       onClick={onClick}
-      className={`border-b border-neutral-300 p-3 cursor-pointer transition-colors ${selected ? "bg-neutral-100 border-l-4 border-l-black" : "bg-white hover:bg-neutral-50"}`}
+      className={`property-card ${selected ? "selected" : ""}`}
     >
-      <div className="flex items-start gap-3">
-        <img src={p.image_url} alt={p.site_address} className="w-16 h-16 object-cover border border-neutral-300 shrink-0" />
-        <div className="min-w-0 flex-1">
-          <div className="text-sm font-semibold truncate">{p.site_address}</div>
-          <div className="flex items-center gap-1 text-[11px] text-neutral-500 mt-0.5">
-            <MapPin className="w-3 h-3" strokeWidth={1.5}/>
+      <div className="card-inner">
+
+        {/* Thumbnail — FIX 1: placeholder when image_url is null */}
+        <div className="card-thumb">
+          {hasImage ? (
+            <img
+              src={p.image_url}
+              alt=""
+              className="card-thumb-img"
+              onError={(e) => {
+                e.currentTarget.style.display = "none";
+                e.currentTarget.nextSibling.style.display = "flex";
+              }}
+            />
+          ) : null}
+          <div
+            className="card-thumb-placeholder"
+            style={{ display: hasImage ? "none" : "flex" }}
+            aria-hidden="true"
+          >
+            //
+          </div>
+        </div>
+
+        {/* Content */}
+        <div className="card-content">
+          <div className="card-address">{p.site_address}</div>
+
+          <div className="card-location">
+            <MapPin className="w-2.5 h-2.5 flex-shrink-0" strokeWidth={1.5} aria-hidden="true" />
             {p.city}, {p.state} {p.zip}
           </div>
-          <div className="flex flex-wrap gap-1 mt-1.5">
-            {p.distress_statuses?.slice(0, 2).map((s) => (
-              <span key={s} className={`text-[9px] uppercase tracking-wide font-bold border px-1.5 py-0.5 ${tagColor(s)}`}>
-                {s.replace("Tax Delinquent - ", "TD ")}
-              </span>
-            ))}
-          </div>
-          <div className="flex items-center justify-between mt-2 pt-2 border-t border-neutral-200">
-            <div>
-              <div className="label-xs text-[9px]">Market</div>
-              <div className="font-mono-pi text-sm font-semibold">{fmtMoney(p.market_value)}</div>
+
+          {/* Distress badges — max 2 */}
+          {p.distress_statuses?.length > 0 && (
+            <div className="card-badges">
+              {p.distress_statuses.slice(0, 2).map((s) => (
+                <span key={s} className={`distress-badge ${distressBadgeClass(s)}`}>
+                  {distressLabel(s)}
+                </span>
+              ))}
             </div>
-            <div className="text-right">
-              <div className="label-xs text-[9px]">Equity</div>
-              <div className="font-mono-pi text-sm font-semibold">{p.equity_pct}%</div>
+          )}
+
+          {/* Stats footer */}
+          <div className="card-stats">
+            <div className="card-stat">
+              <span className="card-stat-label">Market</span>
+              {/* FIX 2: equity rounded; fmtMoney already handles market value */}
+              <span className="card-stat-value">{fmtMoney(p.market_value)}</span>
             </div>
-            <div className="text-right">
-              <div className="label-xs text-[9px]">SqFt</div>
-              <div className="font-mono-pi text-sm font-semibold">{p.sqft?.toLocaleString()}</div>
+            <div className="card-stat">
+              <span className="card-stat-label">Equity</span>
+              <span className="card-stat-value lime">{Math.round(p.equity_pct ?? 0)}%</span>
+            </div>
+            <div className="card-stat text-right">
+              <span className="card-stat-label">Sq Ft</span>
+              {/* FIX 3: fallback dash when sqft is null */}
+              <span className="card-stat-value">{p.sqft?.toLocaleString() ?? "—"}</span>
             </div>
           </div>
         </div>
@@ -51,4 +92,3 @@ export const PropertyCard = ({ p, selected, onClick }) => {
 };
 
 export default PropertyCard;
-
