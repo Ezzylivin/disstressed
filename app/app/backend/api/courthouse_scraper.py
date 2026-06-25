@@ -196,8 +196,7 @@ async def scrape_philadelphia_courthouse():
                 buffer = ""
                 async for chunk in res.aiter_text(chunk_size=65536):
                     buffer += chunk
-                    lines   = buffer.split("
-")
+                    lines   = buffer.split("\n")
                     buffer  = lines[-1]  # keep incomplete last line
                     for line in lines[:-1]:
                         line = line.strip()
