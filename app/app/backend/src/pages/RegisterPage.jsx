@@ -1,11 +1,14 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import { Database } from "lucide-react";
 import "./RegisterPage.css";
 
 export default function RegisterPage() {
-  const { register, error } = useAuth();
+  const { register, error, clearError } = useAuth();
+
+  // Clear stale auth error when user navigates away from this page
+  useEffect(() => () => clearError(), [clearError]);
   const [name,     setName]     = useState("");
   const [email,    setEmail]    = useState("");
   const [password, setPassword] = useState("");
