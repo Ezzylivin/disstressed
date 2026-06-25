@@ -1,11 +1,11 @@
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
-import { AuthProvider, useAuth } from "@/context/AuthContext";
-import DashboardPage from "@/pages/DashboardPage";
-import PropertyDetailPage from "@/pages/PropertyDetailPage";
-import ListsPage from "@/pages/ListsPage";
-import ImportPage from "@/pages/ImportPage";
-import LoginPage from "@/pages/LoginPage";
-import RegisterPage from "@/pages/RegisterPage";
+import { AuthProvider, useAuth } from "./context/AuthContext";
+import DashboardPage from "./pages/DashboardPage";
+import PropertyDetailPage from "./pages/PropertyDetailPage";
+import ListsPage from "./pages/ListsPage";
+import ImportPage from "./pages/ImportPage";
+import LoginPage from "./pages/LoginPage";
+import RegisterPage from "./pages/RegisterPage";
 import "./App.css";
 
 // Renders children when authenticated.
