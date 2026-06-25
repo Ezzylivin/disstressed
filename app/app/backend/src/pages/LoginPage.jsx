@@ -4,24 +4,21 @@ import { useAuth } from "../context/AuthContext";
 import { Database } from "lucide-react";
 import "./LoginPage.css";
 
-// BUG 3 FIX: import React removed — not needed with automatic JSX transform
-
 export default function LoginPage() {
   const { login, error, clearError } = useAuth();
-
-  // Clear stale auth error when user navigates away from this page
-  useEffect(() => () => clearError(), [clearError]);
-  // BUG 1 FIX: "admin..propintel.io" → "admin@propintel.io" (double-dot, missing @)
-  const [email,    setEmail]    = useState("admin@propintel.io");
-  const [password, setPassword] = useState("Demo2026!");
-  const [loading,  setLoading]  = useState(false);
+  const [email,      setEmail]      = useState("admin@propintel.io");
+  const [password,   setPassword]   = useState("Demo2026!");
+  const [submitting, setSubmitting] = useState(false);
   const nav = useNavigate();
+
+  // Clear any stale auth error when the user navigates away
+  useEffect(() => () => clearError(), [clearError]);
 
   const submit = async (e) => {
     e.preventDefault();
-    setLoading(true);
+    setSubmitting(true);
     const ok = await login(email, password);
-    setLoading(false);
+    setSubmitting(false);
     if (ok) nav("/dashboard");
   };
 
@@ -41,7 +38,6 @@ export default function LoginPage() {
           <h1 className="login-headline">
             Find vacant.<br />
             Find delinquent.<br />
-            {/* BUG 2 FIX: #39ff14 → canonical #DEFF9A */}
             <span className="login-headline-accent">Find owners.</span>
           </h1>
           <p className="login-description">
@@ -108,7 +104,6 @@ export default function LoginPage() {
               />
             </div>
 
-            {/* BUG 5 FIX: error uses system red #FF4D4D, not text-red-600/bg-red-50 */}
             {error && (
               <div data-testid="login-error" className="login-error">
                 {error}
@@ -118,10 +113,10 @@ export default function LoginPage() {
             <button
               data-testid="login-submit-btn"
               type="submit"
-              disabled={loading}
+              disabled={submitting}
               className="login-submit"
             >
-              {loading ? "Authenticating..." : "Enter Terminal"}
+              {submitting ? "Authenticating..." : "Enter Terminal"}
             </button>
           </form>
 
@@ -136,7 +131,6 @@ export default function LoginPage() {
             </Link>
           </div>
 
-          {/* BUG 1 FIX: correct email in demo hint */}
           <div className="login-demo-hint" data-testid="demo-creds-hint">
             <span className="login-demo-label">// Demo</span>
             admin@propintel.io · Demo2026!
