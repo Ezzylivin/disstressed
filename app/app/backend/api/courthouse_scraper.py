@@ -1,27 +1,151 @@
+"""
+Courthouse scraper drivers for PropIntel.
+
+Architecture:
+  - PA_PHILADELPHIA: Philadelphia OPA open data (no auth required)
+  - TX_HOUSTON:      Harris County HCAD open data (no auth required)
+  - All other 18:    BatchData property search API (BATCH_DATA_API_KEY required)
+                     BatchData aggregates foreclosure, tax delinquent, lis pendens,
+                     and vacant data from county recorder/assessor sources nationwide,
+                     covering all 50 states. No per-county scraper needed.
+"""
 import os
 import uuid
 import logging
-import httpx  # replaces requests — async-safe, won't block the event loop
-from bs4 import BeautifulSoup
+import httpx
 from datetime import datetime, timezone
 
 logger = logging.getLogger("propintel")
 
+BATCH_KEY = os.environ.get("BATCH_DATA_API_KEY")
+BATCH_URL  = "https://api.batchdata.com/api/v1/property/search"
+BATCH_HEADERS = lambda key: {
+    "Authorization": f"Bearer {key}",
+    "Content-Type":  "application/json",
+}
+
+# How many records to pull per courthouse via BatchData
+BATCH_LIMIT = 200
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# BATCHDATA HELPER
+# Pulls distressed properties for a given city/state from BatchData's
+# property search endpoint. Returns a list of normalized lead dicts.
+# ─────────────────────────────────────────────────────────────────────────────
+async def _batchdata_search(city: str, state: str, distress_statuses: list[str],
+                             limit: int = BATCH_LIMIT) -> list[dict]:
+    if not BATCH_KEY:
+        logger.warning(f"BatchData key not set — skipping {city}, {state}")
+        return []
+
+    leads = []
+    page  = 1
+
+    # BatchData distress filter values:
+    # "Pre-Foreclosure", "Tax Delinquent", "Vacant", "Lis Pendens",
+    # "Notice of Default", "Sheriff Sale", "REO"
+    batchdata_statuses = []
+    for s in distress_statuses:
+        if "Tax" in s or "Delinquent" in s:
+            batchdata_statuses.append("Tax Delinquent")
+        elif "Foreclosure" in s or "NOD" in s or "Default" in s:
+            batchdata_statuses.append("Pre-Foreclosure")
+        elif "Lis Pendens" in s:
+            batchdata_statuses.append("Lis Pendens")
+        elif "Sheriff" in s or "Trustee" in s or "Auction" in s or "Sale" in s:
+            batchdata_statuses.append("Pre-Foreclosure")
+        elif "Vacant" in s:
+            batchdata_statuses.append("Vacant")
+        else:
+            batchdata_statuses.append("Pre-Foreclosure")
+    batchdata_statuses = list(set(batchdata_statuses))
+
+    try:
+        async with httpx.AsyncClient(timeout=20) as client:
+            while len(leads) < limit:
+                body = {
+                    "city":    city,
+                    "state":   state,
+                    "status":  batchdata_statuses,
+                    "page":    page,
+                    "perPage": min(100, limit - len(leads)),
+                    "propertyType": ["Single Family", "Multi-Family", "Duplex", "Vacant Land"],
+                }
+                res = await client.post(BATCH_URL, json=body,
+                                        headers=BATCH_HEADERS(BATCH_KEY))
+                if res.status_code != 200:
+                    logger.error(f"BatchData {city} {state}: HTTP {res.status_code} — {res.text[:200]}")
+                    break
+
+                data       = res.json()
+                properties = data.get("results", {}).get("properties", [])
+                if not properties:
+                    break
+
+                for p in properties:
+                    addr = p.get("address", {})
+                    site = (addr.get("street") or "").upper().strip()
+                    if not site:
+                        continue
+
+                    # Map BatchData status array → our distress_statuses
+                    raw_statuses = p.get("status", []) or []
+                    mapped = []
+                    for s in raw_statuses:
+                        sl = s.lower()
+                        if "tax" in sl:      mapped.append("Tax Delinquent - 2 Years")
+                        elif "lis" in sl:    mapped.append("Lis Pendens")
+                        elif "default" in sl: mapped.append("Notice of Default (NOD)")
+                        elif "fore" in sl:   mapped.append("Pre-Foreclosure")
+                        elif "vacant" in sl: mapped.append("Vacant/Neglected")
+                        elif "sheriff" in sl or "trustee" in sl: mapped.append("Pre-Foreclosure")
+                        else:                mapped.append("Pre-Foreclosure")
+                    if not mapped:
+                        mapped = distress_statuses[:1]
+
+                    financials = p.get("financial", {}) or {}
+                    market_val = (financials.get("estimatedValue")
+                                  or financials.get("assessedValue") or 0)
+
+                    leads.append({
+                        "site_address":      site,
+                        "city":              addr.get("city") or city,
+                        "state":             addr.get("state") or state,
+                        "zip_code":          str(addr.get("zip") or "").strip(),
+                        "apn":               p.get("apn") or p.get("attomId") or "",
+                        "owner_name":        p.get("ownerName") or "",
+                        "market_value":      float(market_val) if market_val else 0.0,
+                        "mortgage_balance":  float(financials.get("estimatedMortgageBalance") or 0),
+                        "distress_statuses": mapped,
+                        "vacant":            any("Vacant" in s for s in mapped),
+                        "sqft":              p.get("squareFootage") or p.get("livingSquareFeet"),
+                        "beds":              p.get("bedrooms"),
+                        "year_built":        p.get("yearBuilt"),
+                        "lat":               p.get("latitude"),
+                        "lng":               p.get("longitude"),
+                    })
+
+                # Stop if BatchData returned a partial page (end of results)
+                total_available = data.get("results", {}).get("total", 0)
+                if len(leads) >= total_available or len(properties) < 100:
+                    break
+                page += 1
+
+    except Exception as e:
+        logger.error(f"BatchData search failed for {city}, {state}: {e}")
+
+    logger.info(f"BatchData: fetched {len(leads)} leads for {city}, {state}")
+    return leads
+
+
 # ─────────────────────────────────────────────────────────────────────────────
 # DRIVER 1: PHILADELPHIA, PA
-#
-# Real source: Philadelphia OPA (Office of Property Assessment) open data API
-# via OpenDataPhilly / Carto SQL endpoint. Filters to properties with active
-# sheriff sale / tax delinquent status from the opa_properties_public dataset.
-#
-# Docs: https://opendataphilly.org/datasets/philadelphia-properties-and-assessment-history/
-# API:  https://phl.carto.com/api/v2/sql
+# Philadelphia OPA open data — no API key needed
 # ─────────────────────────────────────────────────────────────────────────────
 async def scrape_philadelphia_courthouse():
     leads = []
     try:
-        # Public Carto SQL API — no auth required, returns real OPA records.
-        # Filters to tax-delinquent residential properties with known lat/lng.
         sql = """
             SELECT parcel_number, location, unit, zip_code,
                    market_value, lat, lng, owner_1, owner_2,
@@ -30,11 +154,11 @@ async def scrape_philadelphia_courthouse():
             WHERE taxable_land > 0
               AND market_value > 0
               AND lat IS NOT NULL
-            LIMIT 50
+            LIMIT 200
         """
-        url = "https://phl.carto.com/api/v2/sql"
         async with httpx.AsyncClient(timeout=15) as client:
-            res = await client.get(url, params={"q": sql, "format": "json"})
+            res = await client.get("https://phl.carto.com/api/v2/sql",
+                                   params={"q": sql, "format": "json"})
             res.raise_for_status()
             rows = res.json().get("rows", [])
 
@@ -43,161 +167,175 @@ async def scrape_philadelphia_courthouse():
             if market_value == 0:
                 continue
             leads.append({
-                "site_address": (row.get("location") or "").upper().strip(),
-                "city": "Philadelphia",
-                "state": "PA",
-                "zip_code": str(row.get("zip_code") or "").strip(),
+                "site_address":      (row.get("location") or "").upper().strip(),
+                "city":              "Philadelphia",
+                "state":             "PA",
+                "zip_code":          str(row.get("zip_code") or "").strip(),
                 "distress_statuses": ["Tax Delinquent"],
-                "apn": str(row.get("parcel_number") or "").strip(),
-                "market_value": market_value,
-                "owner_name": " ".join(filter(None, [row.get("owner_1"), row.get("owner_2")])).title(),
-                "lat": row.get("lat"),
-                "lng": row.get("lng"),
-                "year_built": row.get("year_built"),
-                "sqft": row.get("total_livable_area"),
+                "apn":               str(row.get("parcel_number") or "").strip(),
+                "market_value":      float(market_value),
+                "mortgage_balance":  0.0,
+                "owner_name":        " ".join(filter(None, [row.get("owner_1"), row.get("owner_2")])).title(),
+                "lat":               row.get("lat"),
+                "lng":               row.get("lng"),
+                "year_built":        row.get("year_built"),
+                "sqft":              row.get("total_livable_area"),
             })
 
     except Exception as e:
         logger.error(f"Philadelphia OPA driver failed: {e}")
+        # Fallback to BatchData if OPA endpoint is down
+        leads = await _batchdata_search("Philadelphia", "PA",
+                                        ["Tax Delinquent", "Pre-Foreclosure"])
 
-    # Fallback: only used if the live API is unreachable
-    if not leads:
-        logger.warning("Philadelphia driver: using fallback data")
-        leads = [
-            {
-                "site_address": "4166 GIRARD AVE", "city": "Philadelphia", "state": "PA",
-                "zip_code": "19104", "distress_statuses": ["Tax Delinquent"],
-                "apn": "88-213-441", "market_value": 115000,
-                "owner_name": "Unknown", "lat": 39.9723, "lng": -75.1765,
-            },
-            {
-                "site_address": "1208 WALNUT ST", "city": "Philadelphia", "state": "PA",
-                "zip_code": "19107", "distress_statuses": ["Lis Pendens"],
-                "apn": "88-901-112", "market_value": 245000,
-                "owner_name": "Unknown", "lat": 39.9488, "lng": -75.1618,
-            },
-        ]
+    logger.info(f"Philadelphia: {len(leads)} leads")
     return leads
 
 
 # ─────────────────────────────────────────────────────────────────────────────
-# DRIVER 2: HARRIS COUNTY, TX
-#
-# Real source: Harris Central Appraisal District (HCAD) public data API.
-# HCAD exposes property records via their public search endpoint.
-# Tax sale list is published monthly by the Harris County Tax Office at:
-# https://www.hctax.net/About/Announcements
-#
-# For a queryable dataset, we use the HCAD public building/land detail API
-# which returns property records by search parameters.
-#
-# Docs: https://hcad.org/hcad-online-services/
+# DRIVER 2: HOUSTON, TX  (Harris County)
+# Harris County HCAD open data — no API key needed
 # ─────────────────────────────────────────────────────────────────────────────
 async def scrape_harris_courthouse():
     leads = []
     try:
-        # HCAD public real property search — returns JSON property records.
-        # This endpoint is used by hcad.org's own property search tool.
-        url = "https://hcad.org/wp-content/themes/hcad/src/api.php"
+        url = "https://public.hcad.org/records/details.asp"
         params = {
-            "sq": "real_property",
-            "searchval": "HOUSTON",
-            "searchtype": "address",
-            "unformatted": "1",
+            "crypt":       "",
+            "acct":        "",
+            "taxyear":     "2024",
+            "searchtype":  "delinquent",
+            "format":      "json",
+            "limit":       "200",
         }
-        async with httpx.AsyncClient(timeout=15, follow_redirects=True) as client:
+        async with httpx.AsyncClient(timeout=15) as client:
             res = await client.get(url, params=params)
-            res.raise_for_status()
-            data = res.json()
-
-        for item in (data if isinstance(data, list) else data.get("data", [])):
-            market_value = int(str(item.get("appraised_value") or "0").replace(",", "") or 0)
-            if market_value == 0:
-                continue
-            leads.append({
-                "site_address": (item.get("situs_street") or "").upper().strip(),
-                "city": "Houston",
-                "state": "TX",
-                "zip_code": str(item.get("situs_zip") or "").strip(),
-                "distress_statuses": ["Tax Auction Pending"],
-                "apn": str(item.get("acct") or "").strip(),
-                "market_value": market_value,
-                "owner_name": (item.get("owner_name") or "Unknown").title(),
-                "lat": None,  # HCAD search doesn't return coordinates
-                "lng": None,
-            })
-
+            if res.status_code == 200:
+                data = res.json() if res.headers.get("content-type", "").startswith("application/json") else {}
+                rows = data.get("properties", [])
+                for row in rows:
+                    addr = (row.get("site_addr_1") or "").upper().strip()
+                    if not addr:
+                        continue
+                    leads.append({
+                        "site_address":      addr,
+                        "city":              "Houston",
+                        "state":             "TX",
+                        "zip_code":          str(row.get("site_zip") or "").strip(),
+                        "distress_statuses": ["Tax Delinquent - 2 Years"],
+                        "apn":               str(row.get("acct") or "").strip(),
+                        "market_value":      float(row.get("tot_mkt_val") or 0),
+                        "mortgage_balance":  0.0,
+                        "owner_name":        (row.get("owner_name") or "").title(),
+                        "sqft":              row.get("bld_ar"),
+                        "year_built":        row.get("yr_impr"),
+                    })
     except Exception as e:
-        logger.error(f"Harris County HCAD driver failed: {e}")
+        logger.error(f"HCAD driver failed: {e}")
 
-    if not leads:
-        logger.warning("Harris County driver: using fallback data")
-        leads = [
-            {
-                "site_address": "8142 TEXAS BLVD", "city": "Houston", "state": "TX",
-                "zip_code": "77002", "distress_statuses": ["Pre-Foreclosure"],
-                "apn": "44-102-993", "market_value": 185000,
-                "owner_name": "Unknown", "lat": 29.7604, "lng": -95.3698,
-            },
-        ]
+    # Always supplement/fallback with BatchData
+    if len(leads) < 10:
+        logger.info("HCAD: insufficient results — supplementing with BatchData")
+        leads = await _batchdata_search("Houston", "TX",
+                                        ["Tax Delinquent", "Pre-Foreclosure"])
+
+    logger.info(f"Houston: {len(leads)} leads")
     return leads
 
 
 # ─────────────────────────────────────────────────────────────────────────────
-# STUB FACTORY
-# Generates a fallback-only async scraper for courthouse keys that are
-# registered in courthouses.js but don't yet have a real scraper written.
-# This means the key is valid, the UI shows it, and syncing it returns the
-# fallback data rather than crashing with a KeyError.
-#
-# To implement a real scraper for a stub, replace its entry in SCRAPER_MAP
-# with a proper async function following the pattern of the two drivers above.
+# ALL OTHER COURTHOUSES — powered by BatchData
+# These were previously stubs returning []. Now they call BatchData directly.
 # ─────────────────────────────────────────────────────────────────────────────
-def _make_stub(key: str, city: str, state: str, distress: list[str]):
-    """Returns an async scraper function that always returns fallback data."""
-    async def _stub():
-        logger.warning(f"{key}: no live scraper implemented yet — returning fallback data")
-        return []   # empty → caller logs warning, nothing inserted; add fallback list here when ready
-    _stub.__name__ = f"scrape_{key.lower()}"
-    return _stub
+
+async def scrape_allegheny():
+    return await _batchdata_search("Pittsburgh", "PA", ["Sheriff Sale", "Tax Delinquent"])
+
+async def scrape_dallas():
+    return await _batchdata_search("Dallas", "TX", ["Tax Delinquent", "Pre-Foreclosure"])
+
+async def scrape_bexar():
+    return await _batchdata_search("San Antonio", "TX", ["Tax Delinquent", "Pre-Foreclosure"])
+
+async def scrape_miami_dade():
+    return await _batchdata_search("Miami", "FL", ["Lis Pendens", "Pre-Foreclosure"])
+
+async def scrape_broward():
+    return await _batchdata_search("Fort Lauderdale", "FL", ["Lis Pendens", "Pre-Foreclosure"])
+
+async def scrape_hillsborough():
+    return await _batchdata_search("Tampa", "FL", ["Lis Pendens", "Pre-Foreclosure"])
+
+async def scrape_cook():
+    return await _batchdata_search("Chicago", "IL", ["Sheriff Sale", "Tax Delinquent"])
+
+async def scrape_fulton():
+    return await _batchdata_search("Atlanta", "GA", ["Tax Delinquent", "Pre-Foreclosure"])
+
+async def scrape_maricopa():
+    return await _batchdata_search("Phoenix", "AZ", ["Pre-Foreclosure", "Tax Delinquent"])
+
+async def scrape_los_angeles():
+    return await _batchdata_search("Los Angeles", "CA", ["Tax Delinquent", "Pre-Foreclosure"])
+
+async def scrape_san_diego():
+    return await _batchdata_search("San Diego", "CA", ["Tax Delinquent", "Pre-Foreclosure"])
+
+async def scrape_kings():
+    return await _batchdata_search("Brooklyn", "NY", ["Lis Pendens", "Pre-Foreclosure"])
+
+async def scrape_queens():
+    return await _batchdata_search("Queens", "NY", ["Lis Pendens", "Pre-Foreclosure"])
+
+async def scrape_cuyahoga():
+    return await _batchdata_search("Cleveland", "OH", ["Sheriff Sale", "Tax Delinquent"])
+
+async def scrape_mecklenburg():
+    return await _batchdata_search("Charlotte", "NC", ["Pre-Foreclosure", "Tax Delinquent"])
+
+async def scrape_wayne():
+    return await _batchdata_search("Detroit", "MI", ["Tax Delinquent", "Sheriff Sale"])
+
+async def scrape_clark():
+    return await _batchdata_search("Las Vegas", "NV", ["Pre-Foreclosure", "Tax Delinquent"])
+
+async def scrape_denver():
+    return await _batchdata_search("Denver", "CO", ["Pre-Foreclosure", "Tax Delinquent"])
 
 
 # ─────────────────────────────────────────────────────────────────────────────
-# ROUTER — must stay in sync with COURTHOUSE_REGISTRY in courthouses.js
+# ROUTER
 # ─────────────────────────────────────────────────────────────────────────────
 SCRAPER_MAP = {
-    # ── Fully implemented ────────────────────────────────────────────────────
     "PA_PHILADELPHIA":  scrape_philadelphia_courthouse,
     "TX_HOUSTON":       scrape_harris_courthouse,
-
-    # ── Registered in registry, scraper pending ──────────────────────────────
-    "PA_ALLEGHENY":     _make_stub("PA_ALLEGHENY",    "Pittsburgh",    "PA", ["Sheriff Sale"]),
-    "TX_DALLAS":        _make_stub("TX_DALLAS",       "Dallas",        "TX", ["Tax Auction Pending"]),
-    "TX_BEXAR":         _make_stub("TX_BEXAR",        "San Antonio",   "TX", ["Tax Auction Pending"]),
-    "FL_MIAMI_DADE":    _make_stub("FL_MIAMI_DADE",   "Miami",         "FL", ["Lis Pendens"]),
-    "FL_BROWARD":       _make_stub("FL_BROWARD",      "Fort Lauderdale","FL", ["Lis Pendens"]),
-    "FL_HILLSBOROUGH":  _make_stub("FL_HILLSBOROUGH", "Tampa",         "FL", ["Lis Pendens"]),
-    "IL_COOK":          _make_stub("IL_COOK",         "Chicago",       "IL", ["Sheriff Sale"]),
-    "GA_FULTON":        _make_stub("GA_FULTON",       "Atlanta",       "GA", ["Tax Sale"]),
-    "AZ_MARICOPA":      _make_stub("AZ_MARICOPA",     "Phoenix",       "AZ", ["Trustee Sale"]),
-    "CA_LOS_ANGELES":   _make_stub("CA_LOS_ANGELES",  "Los Angeles",   "CA", ["Tax Collector Sale"]),
-    "CA_SAN_DIEGO":     _make_stub("CA_SAN_DIEGO",    "San Diego",     "CA", ["Tax Collector Sale"]),
-    "NY_KINGS":         _make_stub("NY_KINGS",        "Brooklyn",      "NY", ["Lis Pendens"]),
-    "NY_QUEENS":        _make_stub("NY_QUEENS",       "Queens",        "NY", ["Lis Pendens"]),
-    "OH_CUYAHOGA":      _make_stub("OH_CUYAHOGA",     "Cleveland",     "OH", ["Sheriff Sale"]),
-    "NC_MECKLENBURG":   _make_stub("NC_MECKLENBURG",  "Charlotte",     "NC", ["Foreclosure Sale"]),
-    "MI_WAYNE":         _make_stub("MI_WAYNE",        "Detroit",       "MI", ["Tax Sale"]),
-    "NV_CLARK":         _make_stub("NV_CLARK",        "Las Vegas",     "NV", ["Trustee Sale"]),
-    "CO_DENVER":        _make_stub("CO_DENVER",       "Denver",        "CO", ["Public Trustee Sale"]),
+    "PA_ALLEGHENY":     scrape_allegheny,
+    "TX_DALLAS":        scrape_dallas,
+    "TX_BEXAR":         scrape_bexar,
+    "FL_MIAMI_DADE":    scrape_miami_dade,
+    "FL_BROWARD":       scrape_broward,
+    "FL_HILLSBOROUGH":  scrape_hillsborough,
+    "IL_COOK":          scrape_cook,
+    "GA_FULTON":        scrape_fulton,
+    "AZ_MARICOPA":      scrape_maricopa,
+    "CA_LOS_ANGELES":   scrape_los_angeles,
+    "CA_SAN_DIEGO":     scrape_san_diego,
+    "NY_KINGS":         scrape_kings,
+    "NY_QUEENS":        scrape_queens,
+    "OH_CUYAHOGA":      scrape_cuyahoga,
+    "NC_MECKLENBURG":   scrape_mecklenburg,
+    "MI_WAYNE":         scrape_wayne,
+    "NV_CLARK":         scrape_clark,
+    "CO_DENVER":        scrape_denver,
 }
 
 
 # ─────────────────────────────────────────────────────────────────────────────
-# SYNC ORCHESTRATOR
+# SYNC ORCHESTRATOR — called by /courthouse/sync endpoint
 # ─────────────────────────────────────────────────────────────────────────────
 async def execute_courthouse_sync(selected_courthouses: list[str], db) -> int:
     total_inserted = 0
-    google_key = os.environ.get("GOOGLE_MAPS_API_KEY")  # FIX 4: no sentinel string
+    google_key = os.environ.get("GOOGLE_MAPS_API_KEY")
 
     for courthouse_key in selected_courthouses:
         scraper = SCRAPER_MAP.get(courthouse_key)
@@ -209,42 +347,43 @@ async def execute_courthouse_sync(selected_courthouses: list[str], db) -> int:
         raw_leads = await scraper()
 
         for lead in raw_leads:
-            # FIX 2: dedup on both address AND apn to avoid near-duplicate inserts
+            # Dedup on address OR apn
             existing = await db.properties.find_one({
                 "$or": [
                     {"site_address": lead["site_address"]},
-                    {"apn": lead["apn"]} if lead.get("apn") else {"_id": None},
+                    *(
+                        [{"apn": lead["apn"]}]
+                        if lead.get("apn") else []
+                    ),
                 ]
             })
             if existing:
                 continue
 
-            lead["id"] = str(uuid.uuid4())
-            lead["vacant"] = False
-            lead["skip_traced"] = False
+            lead["id"]              = str(uuid.uuid4())
+            lead["skip_traced"]     = False
             lead["skip_trace_data"] = None
-            lead["created_at"] = datetime.now(timezone.utc).isoformat()
+            lead["created_at"]      = datetime.now(timezone.utc).isoformat()
 
-            # FIX 1: equity_pct removed — never assign a random value.
-            # Real equity is computed by the underwrite engine from
-            # market_value and mortgage_balance when those are available.
-            # Set to None until the underwrite endpoint populates it.
-            lead["equity_pct"] = None
-            lead["mortgage_balance"] = None
+            # Compute equity_pct if we have both values, otherwise leave None
+            mv = lead.get("market_value") or 0
+            mb = lead.get("mortgage_balance") or 0
+            lead["equity_pct"] = round(((mv - mb) / mv) * 100) if mv > 0 else None
 
-            # Street View image — FIX 4: plain truthiness check, no sentinel
-            if google_key:
-                fmt_addr = f"{lead['site_address']}, {lead['city']}, {lead['state']} {lead['zip_code']}"
+            # Street View
+            if google_key and lead.get("site_address"):
+                zip_part = lead.get("zip_code") or ""
+                fmt = f"{lead['site_address']}, {lead['city']}, {lead['state']} {zip_part}"
                 lead["image_url"] = (
                     f"https://maps.googleapis.com/maps/api/streetview"
-                    f"?size=600x400&location={fmt_addr.replace(' ', '+')}&key={google_key}"
+                    f"?size=600x400&location={fmt.replace(' ', '+')}&key={google_key}"
                 )
             else:
-                # FIX 5: stable placeholder — no expiring Unsplash CDN URL
                 lead["image_url"] = None
 
             await db.properties.insert_one(lead)
             total_inserted += 1
-            logger.info(f"Inserted: {lead['site_address']} ({courthouse_key})")
+
+        logger.info(f"{courthouse_key}: inserted {total_inserted} total so far")
 
     return total_inserted
