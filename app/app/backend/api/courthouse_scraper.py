@@ -63,74 +63,107 @@ async def _batchdata_search(city: str, state: str, distress_statuses: list[str],
 
     try:
         async with httpx.AsyncClient(timeout=20) as client:
+            skip = 0
             while len(leads) < limit:
+                take = min(100, limit - len(leads))
+
+                # Correct BatchData v1 request body — searchCriteria is required
                 body = {
-                    "city":    city,
-                    "state":   state,
-                    "status":  batchdata_statuses,
-                    "page":    page,
-                    "perPage": min(100, limit - len(leads)),
-                    "propertyType": ["Single Family", "Multi-Family", "Duplex", "Vacant Land"],
+                    "requests": [
+                        {
+                            "searchCriteria": {
+                                "address": {
+                                    "city":  city,
+                                    "state": state,
+                                },
+                                # Boolean distress flags — BatchData ignores unknown keys
+                                "taxDelinquent":  any("tax" in s.lower() for s in distress_statuses),
+                                "preForeclosure": any("fore" in s.lower() or "pendens" in s.lower() or "default" in s.lower() or "sheriff" in s.lower() or "trustee" in s.lower() for s in distress_statuses),
+                                "vacant":         any("vacant" in s.lower() for s in distress_statuses),
+                            },
+                            "options": {
+                                "skip": skip,
+                                "take": take,
+                            }
+                        }
+                    ]
                 }
+
                 res = await client.post(BATCH_URL, json=body,
                                         headers=BATCH_HEADERS(BATCH_KEY))
+
+                if res.status_code == 400:
+                    logger.error(f"BatchData {city} {state}: HTTP 400 — {res.text[:300]}")
+                    break
                 if res.status_code != 200:
                     logger.error(f"BatchData {city} {state}: HTTP {res.status_code} — {res.text[:200]}")
                     break
 
-                data       = res.json()
-                properties = data.get("results", {}).get("properties", [])
+                data = res.json()
+                # BatchData response: {"results": {"properties": [...], "total": N}}
+                properties = (data.get("results", {}).get("properties") or
+                              data.get("data") or [])
+
                 if not properties:
+                    logger.warning(f"BatchData {city} {state} skip={skip}: 0 results. Keys: {list(data.keys())}")
                     break
 
                 for p in properties:
-                    addr = p.get("address", {})
-                    site = (addr.get("street") or "").upper().strip()
+                    addr = (p.get("address") or p.get("propertyAddress") or {})
+                    site = (addr.get("street") or addr.get("line1") or
+                            p.get("siteAddress") or p.get("streetAddress") or "").upper().strip()
                     if not site:
                         continue
 
-                    # Map BatchData status array → our distress_statuses
-                    raw_statuses = p.get("status", []) or []
+                    # Map BatchData status → our vocabulary
+                    raw_statuses = (p.get("distressIndicators") or
+                                    p.get("propertyStatuses") or
+                                    p.get("status") or [])
                     mapped = []
-                    for s in raw_statuses:
-                        sl = s.lower()
-                        if "tax" in sl:      mapped.append("Tax Delinquent - 2 Years")
-                        elif "lis" in sl:    mapped.append("Lis Pendens")
-                        elif "default" in sl: mapped.append("Notice of Default (NOD)")
-                        elif "fore" in sl:   mapped.append("Pre-Foreclosure")
-                        elif "vacant" in sl: mapped.append("Vacant/Neglected")
+                    for s in (raw_statuses if isinstance(raw_statuses, list) else [raw_statuses]):
+                        sl = str(s).lower()
+                        if "tax" in sl:                     mapped.append("Tax Delinquent - 2 Years")
+                        elif "lis" in sl or "pendens" in sl: mapped.append("Lis Pendens")
+                        elif "default" in sl or "nod" in sl: mapped.append("Notice of Default (NOD)")
+                        elif "fore" in sl:                  mapped.append("Pre-Foreclosure")
+                        elif "vacant" in sl:                mapped.append("Vacant/Neglected")
                         elif "sheriff" in sl or "trustee" in sl: mapped.append("Pre-Foreclosure")
-                        else:                mapped.append("Pre-Foreclosure")
+                        else:                               mapped.append("Pre-Foreclosure")
                     if not mapped:
                         mapped = distress_statuses[:1]
 
-                    financials = p.get("financial", {}) or {}
-                    market_val = (financials.get("estimatedValue")
-                                  or financials.get("assessedValue") or 0)
+                    # Financial fields — BatchData uses several possible names
+                    mv = float(p.get("totalMarketValue") or p.get("estimatedValue") or
+                               p.get("marketValue") or
+                               (p.get("financial") or {}).get("estimatedValue") or 0)
+                    mb = float(p.get("estimatedMortgageBalance") or
+                               (p.get("financial") or {}).get("estimatedMortgageBalance") or 0)
 
                     leads.append({
                         "site_address":      site,
-                        "city":              addr.get("city") or city,
-                        "state":             addr.get("state") or state,
-                        "zip_code":          str(addr.get("zip") or "").strip(),
-                        "apn":               p.get("apn") or p.get("attomId") or "",
-                        "owner_name":        p.get("ownerName") or "",
-                        "market_value":      float(market_val) if market_val else 0.0,
-                        "mortgage_balance":  float(financials.get("estimatedMortgageBalance") or 0),
-                        "distress_statuses": mapped,
+                        "city":              addr.get("city") or p.get("city") or city,
+                        "state":             addr.get("state") or p.get("state") or state,
+                        "zip_code":          str(addr.get("zip") or addr.get("zipCode") or p.get("zip") or "").strip(),
+                        "apn":               str(p.get("assessorParcelNumber") or p.get("apn") or p.get("parcelNumber") or "").strip(),
+                        "owner_name":        (p.get("ownerName") or p.get("owner") or ""),
+                        "market_value":      mv or 0.0,
+                        "mortgage_balance":  mb,
+                        "distress_statuses": list(dict.fromkeys(mapped)),
                         "vacant":            any("Vacant" in s for s in mapped),
-                        "sqft":              p.get("squareFootage") or p.get("livingSquareFeet"),
+                        "sqft":              p.get("totalBuildingAreaSquareFeet") or p.get("squareFootage") or p.get("livingSquareFeet"),
                         "beds":              p.get("bedrooms"),
+                        "baths":             p.get("bathrooms") or p.get("totalBathrooms"),
                         "year_built":        p.get("yearBuilt"),
-                        "lat":               p.get("latitude"),
-                        "lng":               p.get("longitude"),
+                        "lat":               p.get("latitude") or addr.get("latitude"),
+                        "lng":               p.get("longitude") or addr.get("longitude"),
                     })
 
-                # Stop if BatchData returned a partial page (end of results)
-                total_available = data.get("results", {}).get("total", 0)
-                if len(leads) >= total_available or len(properties) < 100:
+                # Pagination
+                total_available = (data.get("results", {}).get("total") or
+                                   data.get("meta", {}).get("total") or 0)
+                if len(leads) >= min(limit, total_available) or len(properties) < take:
                     break
-                page += 1
+                skip += take
 
     except Exception as e:
         logger.error(f"BatchData search failed for {city}, {state}: {e}")
@@ -146,16 +179,7 @@ async def _batchdata_search(city: str, state: str, distress_statuses: list[str],
 async def scrape_philadelphia_courthouse():
     leads = []
     try:
-        sql = """
-            SELECT parcel_number, location, unit, zip_code,
-                   market_value, lat, lng, owner_1, owner_2,
-                   sale_price, sale_date, year_built, total_livable_area
-            FROM opa_properties_public
-            WHERE taxable_land > 0
-              AND market_value > 0
-              AND lat IS NOT NULL
-            LIMIT 200
-        """
+        sql = "SELECT parcel_number,location,unit,zip_code,market_value,lat,lng,owner_1,owner_2,sale_price,sale_date,year_built,total_livable_area FROM opa_properties_public WHERE taxable_land>0 AND market_value>0 AND lat IS NOT NULL LIMIT 200"
         async with httpx.AsyncClient(timeout=15) as client:
             res = await client.get("https://phl.carto.com/api/v2/sql",
                                    params={"q": sql, "format": "json"})
