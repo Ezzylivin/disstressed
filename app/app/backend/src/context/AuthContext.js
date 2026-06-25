@@ -18,33 +18,8 @@ export const AuthProvider = ({ children }) => {
     setLoading(false);
   }, []);
 
-  // Wire a response interceptor so an expired token mid-session auto-logs out.
-  // CRITICAL: skip /auth/* endpoints — a 401 on /auth/login means wrong
-  // credentials, not an expired session. Without this guard the interceptor
-  // fires on a bad-password attempt, redirects to /login, and leaves the
-  // submit button permanently stuck on "Authenticating...".
-  useEffect(() => {
-    const interceptorId = api.interceptors.response.use(
-      (res) => res,
-      (err) => {
-        const url = err.config?.url ?? "";
-        const isAuthRoute = url.includes("/auth/");
-        if (err.response?.status === 401 && !isAuthRoute) {
-          setUser((currentUser) => {
-            if (currentUser) {
-              localStorage.removeItem("pi_token");
-              window.location.replace("/login");
-            }
-            return null;
-          });
-        }
-        return Promise.reject(err);
-      }
-    );
-    return () => api.interceptors.response.eject(interceptorId);
-  }, []);
-
   // Rehydrate session on mount
+  // (401 handling lives in api.js interceptor — single source of truth)
   useEffect(() => {
     const token = localStorage.getItem("pi_token");
     if (!token) {
