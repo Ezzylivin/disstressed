@@ -1,198 +1,361 @@
-/* --- Master Content Wrapper --- */
-.auth-page-container {
+/* ─────────────────────────────────────────────────
+   LoginPage.css
+   Full-screen split layout — dark brand panel left,
+   dark form panel right. Both panels center their
+   content vertically. Consistent with terminal skin.
+───────────────────────────────────────────────── */
+
+/* ─────────────────────────────────────────────────
+   ROOT — full viewport two-column grid
+───────────────────────────────────────────────── */
+.login-root {
   min-height: 100vh;
   width: 100vw;
-  display: flex;
-  flex-direction: column;
-  background-color: #ffffff;
-  color: #000000;
-  font-family: 'IBM Plex Sans', system-ui, sans-serif;
-  padding: 2rem;
-  box-sizing: border-box;
-}
-
-@media (min-width: 768px) {
-  .auth-page-container {
-    flex-direction: row;
-    padding: 0;
-  }
-}
-
-/* --- Left Column: Editorial Information --- */
-.auth-hero-side {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  justify-content: flex-start;
-  padding: 2rem;
-  border-bottom: 2px solid #000000;
-}
-
-@media (min-width: 768px) {
-  .auth-hero-side {
-    padding: 4rem;
-    border-bottom: none;
-    border-right: 2px solid #000000;
-    height: 100vh;
-    overflow-y: auto;
-  }
-}
-
-.auth-brand {
-  font-family: 'Chivo', sans-serif;
-  font-weight: 900;
-  text-transform: uppercase;
-  font-size: 1.5rem;
-  letter-spacing: -0.03em;
-  margin-bottom: 3rem;
-}
-
-.auth-hero-side h1 {
-  font-family: 'Chivo', sans-serif;
-  font-weight: 900;
-  font-size: 3rem;
-  line-height: 1.05;
-  text-transform: uppercase;
-  margin: 0 0 2rem 0;
-  letter-spacing: -0.02em;
-}
-
-.auth-hero-side p {
-  font-size: 0.95rem;
-  line-height: 1.5;
-  color: #262626;
-  max-width: 540px;
-  margin-bottom: 3rem;
-}
-
-.auth-stats-grid {
-  margin-top: auto;
   display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  gap: 1.5rem;
-  font-family: 'IBM Plex Mono', monospace;
+  grid-template-columns: 3fr 2fr;
+  background: #000000;
+  font-family: 'Urbanist', sans-serif;
+  color: #ffffff;
 }
 
-.stat-block {
-  border-top: 1px solid #e5e5e5;
-  padding-top: 0.75rem;
-}
-
-.stat-value {
-  font-size: 1.25rem;
-  font-weight: 700;
-}
-
-.stat-label {
-  font-size: 10px;
-  text-transform: uppercase;
-  letter-spacing: 0.1em;
-  color: #737373;
-  margin-top: 0.25rem;
-}
-
-/* --- Right Column: The Security Form Gate --- */
-.auth-form-side {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-  align-items: center;
-  padding: 3rem 2rem;
-  background-color: #fafafa;
-}
-
-@media (min-width: 768px) {
-  .auth-form-side {
-    height: 100vh;
-    padding: 4rem;
+@media (max-width: 900px) {
+  .login-root {
+    grid-template-columns: 1fr;
   }
 }
 
-.auth-card {
-  width: 100%;
-  max-width: 400px;
-  background: #ffffff;
-  border: 2px solid #000000;
-  padding: 2.5rem;
-  box-shadow: 6px 6px 0px #000000;
+/* ─────────────────────────────────────────────────
+   LEFT: BRAND PANEL
+   flex column with space-between so logo anchors
+   top, content centers, footer anchors bottom.
+───────────────────────────────────────────────── */
+.login-brand {
+  background: #050505;
+  border-right: 1px solid #1a1a1a;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  padding: 2.5rem 3rem;
+  min-height: 100vh;
 }
 
-.auth-card h2 {
-  font-family: 'Chivo', sans-serif;
+@media (max-width: 900px) {
+  .login-brand {
+    min-height: auto;
+    padding: 2rem;
+    border-right: none;
+    border-bottom: 1px solid #1a1a1a;
+  }
+}
+
+/* ── Logo ── */
+.login-brand-logo {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.login-logo-icon {
+  width: 20px;
+  height: 20px;
+  color: #DEFF9A;
+  flex-shrink: 0;
+}
+
+.login-logo-name {
+  font-family: 'Urbanist', sans-serif;
+  font-size: 18px;
   font-weight: 900;
-  font-size: 2rem;
   text-transform: uppercase;
-  margin: 0 0 2rem 0;
-}
-
-.form-group {
-  margin-bottom: 1.5rem;
-}
-
-.form-group label {
-  display: block;
-  font-family: 'IBM Plex Mono', monospace;
-  font-size: 11px;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.1em;
-  margin-bottom: 0.5rem;
-}
-
-.form-group input {
-  width: 100%;
-  height: 44px;
-  border: 1px solid #000000;
-  padding: 0 1rem;
-  font-family: 'IBM Plex Mono', monospace;
-  font-size: 0.85rem;
-  box-sizing: border-box;
-}
-
-.form-group input:focus {
-  outline: none;
-  border-width: 2px;
-  background-color: #fffbeb;
-}
-
-.auth-submit-btn {
-  width: 100%;
-  height: 48px;
-  background-color: #000000;
+  letter-spacing: -0.02em;
   color: #ffffff;
-  border: none;
+}
+
+/* ── Brand body — centered between logo and footer ── */
+.login-brand-body {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+  max-width: 540px;
+  /* vertical centering is handled by justify-content: space-between on parent */
+  padding: 3rem 0;
+}
+
+.login-eyebrow {
   font-family: 'IBM Plex Mono', monospace;
-  font-size: 12px;
+  font-size: 10px;
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.15em;
-  cursor: pointer;
-  transition: background-color 0.1s ease;
-  margin-top: 0.5rem;
+  color: #333;
 }
 
-.auth-submit-btn:hover {
-  background-color: #262626;
+.login-headline {
+  font-family: 'Urbanist', sans-serif;
+  font-size: clamp(36px, 5vw, 60px);
+  font-weight: 900;
+  text-transform: uppercase;
+  letter-spacing: -0.02em;
+  line-height: 0.95;
+  color: #ffffff;
+  margin: 0;
 }
 
-.auth-footer-links {
-  margin-top: 1.5rem;
-  font-size: 0.8rem;
-  text-align: center;
+/* BUG 2 FIX: canonical #DEFF9A lime */
+.login-headline-accent {
+  color: #DEFF9A;
 }
 
-.auth-footer-links a {
-  color: #000000;
-  font-weight: 700;
-  text-decoration: underline;
-}
-
-.demo-credentials-box {
-  margin-top: 2rem;
-  border: 1px dashed #cccccc;
-  background: #f4f4f5;
-  padding: 1rem;
+.login-description {
   font-family: 'IBM Plex Mono', monospace;
   font-size: 11px;
+  color: #333;
+  line-height: 1.75;
+  max-width: 420px;
+}
+
+/* ── Stats row ── */
+.login-stats {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  border-top: 1px solid #1a1a1a;
+  padding-top: 1.5rem;
+  max-width: 380px;
+  gap: 0;
+}
+
+.login-stat {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding-right: 1.25rem;
+  border-right: 1px solid #1a1a1a;
+}
+
+.login-stat:last-child {
+  border-right: none;
+  padding-right: 0;
+  padding-left: 1.25rem;
+}
+
+.login-stat:nth-child(2) {
+  padding-left: 1.25rem;
+}
+
+.login-stat-number {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 22px;
+  font-weight: 700;
+  color: #DEFF9A;
+  line-height: 1;
+}
+
+.login-stat-label {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 9px;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: #333;
+}
+
+/* ── Footer ── */
+.login-brand-footer {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 9px;
+  color: #222;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+/* ─────────────────────────────────────────────────
+   RIGHT: FORM PANEL
+   Centers the form card both vertically + horizontally
+───────────────────────────────────────────────── */
+.login-form-panel {
+  background: #000000;
+  display: flex;
+  align-items: center;       /* vertical center */
+  justify-content: center;   /* horizontal center */
+  padding: 3rem 2rem;
+  min-height: 100vh;
+}
+
+@media (max-width: 900px) {
+  .login-form-panel {
+    min-height: auto;
+    padding: 2rem;
+  }
+}
+
+/* ── Form card ── */
+.login-form-inner {
+  width: 100%;
+  max-width: 360px;
+  display: flex;
+  flex-direction: column;
+  gap: 0; /* children manage their own spacing */
+}
+
+.login-form-eyebrow {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 9px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.15em;
+  color: #333;
+  margin-bottom: 8px;
+}
+
+.login-form-title {
+  font-family: 'Urbanist', sans-serif;
+  font-size: 28px;
+  font-weight: 900;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+  color: #ffffff;
+  margin: 0 0 2rem;
+}
+
+/* ── Form ── */
+.login-form {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+
+.login-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.login-label {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 9px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: #333;
+}
+
+.login-input {
+  width: 100%;
+  background: #080808;
+  border: none;
+  border-bottom: 1px solid #2a2a2a;
+  color: #ffffff;
+  padding: 9px 0;
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 12px;
+  outline: none;
+  transition: border-color 0.12s;
+  border-radius: 0;
+}
+
+.login-input:focus {
+  /* BUG 4 FIX: #002fa7 → canonical #DEFF9A */
+  border-bottom-color: #DEFF9A;
+}
+
+.login-input::placeholder {
+  color: #2a2a2a;
+}
+
+/* BUG 5 FIX: error uses #FF4D4D, not text-red-600/bg-red-50 */
+.login-error {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 10px;
+  color: #FF4D4D;
+  border: 1px solid rgba(255, 77, 77, 0.25);
+  background: rgba(255, 77, 77, 0.06);
+  padding: 8px 10px;
+  line-height: 1.5;
+}
+
+.login-submit {
+  width: 100%;
+  background: #DEFF9A;
+  color: #000000;
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  padding: 12px 0;
+  border: none;
+  cursor: pointer;
+  margin-top: 0.5rem;
+  transition: background-color 0.1s;
+}
+
+.login-submit:hover:not(:disabled) {
+  background: #ffffff;
+}
+
+.login-submit:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+/* ── Register link ── */
+.login-register-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 1.75rem;
+  padding-top: 1.25rem;
+  border-top: 1px solid #111;
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 10px;
+}
+
+.login-register-prompt {
+  color: #333;
+}
+
+.login-register-link {
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: #DEFF9A;
+  text-decoration: none;
+  border-bottom: 1px solid rgba(222, 255, 154, 0.3);
+  transition: border-color 0.1s;
+}
+
+.login-register-link:hover {
+  border-bottom-color: #DEFF9A;
+}
+
+/* ── Demo hint ── */
+.login-demo-hint {
+  margin-top: 1rem;
+  padding: 10px 12px;
+  background: #080808;
+  border: 1px solid #1a1a1a;
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 10px;
+  color: #555;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.login-demo-label {
+  font-size: 8px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: #2a2a2a;
+}
+
+/* ─────────────────────────────────────────────────
+   REDUCED MOTION
+───────────────────────────────────────────────── */
+@media (prefers-reduced-motion: reduce) {
+  .login-input,
+  .login-submit,
+  .login-register-link {
+    transition: none;
+  }
 }
