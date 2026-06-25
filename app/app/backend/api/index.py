@@ -7,6 +7,7 @@ import sys
 from datetime import datetime, timezone, timedelta
 from typing import List, Optional
 from io import BytesIO
+from api.courthouse_orchestrator import execute_courthouse_sync
 
 # ============ Path & Environment Safety Gates ============
 from pathlib import Path
@@ -533,6 +534,19 @@ async def export_arbitrary(payload: dict, user: dict = Depends(get_current_user)
         media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
         headers={"Content-Disposition": 'attachment; filename="propintel_export.xlsx"'},
     )
+
+@api.post("/courthouse/sync")
+async def sync_courthouses(payload: dict, user: dict = Depends(get_current_user)):
+    """
+    Accepts an array of checked courthouse IDs from the UI sidebar, 
+    runs their specific background extraction drivers, and loads data.
+    """
+    selected = payload.get("courthouses", []) # e.g., ["PA_PHILADELPHIA", "TX_HOUSTON"]
+    if not selected:
+        raise HTTPException(status_code=400, detail="No target courthouse structures selected")
+        
+    records_pulled = await execute_courthouse_sync(selected, db)
+    return {"status": "success", "inserted_records": records_pulled}
 
 # ============ Advanced Ingestion Engine Protocols ============
 @api.post("/admin/ingest-lead")
