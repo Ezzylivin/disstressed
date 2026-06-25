@@ -1,36 +1,59 @@
-.App-logo {
-    height: 40vmin;
-    pointer-events: none;
+/* ─────────────────────────────────────────────────
+   App.css
+   Global resets only. All component styles live in
+   their own CSS files. CRA scaffold styles removed.
+───────────────────────────────────────────────── */
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
 }
 
-@media (prefers-reduced-motion: no-preference) {
-    .App-logo {
-        animation: App-logo-spin infinite 20s linear;
-    }
+html,
+body,
+#root {
+  height: 100%;
+  margin: 0;
+  padding: 0;
+  background: #000000;
+  color: #ffffff;
+  /* Explicit font stack — prevents font-sans Tailwind default overriding Urbanist */
+  font-family: 'Urbanist', sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
-.App-header {
-    background-color: #0f0f10;
-    min-height: 100vh;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    font-size: calc(10px + 2vmin);
-    color: white;
+/* Global text selection uses system lime accent */
+::selection {
+  background: #DEFF9A;
+  color: #000000;
 }
 
-.App-link {
-    color: #61dafb;
+/* Remove default focus rings — components define their own focus-visible styles */
+:focus {
+  outline: none;
 }
 
-@keyframes App-logo-spin {
-    from {
-        transform: rotate(0deg);
-    }
-    to {
-        transform: rotate(360deg);
-    }
+:focus-visible {
+  outline: 1px solid #DEFF9A;
+  outline-offset: 2px;
 }
 
+/* Scrollbar skin — Webkit */
+::-webkit-scrollbar {
+  width: 4px;
+  height: 4px;
+}
 
+::-webkit-scrollbar-track {
+  background: #000000;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #1e1e1e;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #2a2a2a;
+}
