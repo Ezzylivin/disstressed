@@ -2,74 +2,42 @@
 @tailwind components;
 @tailwind utilities;
 
+@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Space+Grotesk:wght@400;500;700&display=swap');
+
 body {
     margin: 0;
-    font-family:
-        -apple-system, BlinkMacSystemFont, "Segoe UI", "Roboto", "Oxygen",
-        "Ubuntu", "Cantarell", "Fira Sans", "Droid Sans", "Helvetica Neue",
-        sans-serif;
+    font-family: 'Space Grotesk', -apple-system, BlinkMacSystemFont, sans-serif;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
+    background-color: #000000;
 }
 
 code {
-    font-family:
-        source-code-pro, Menlo, Monaco, Consolas, "Courier New", monospace;
+    font-family: 'JetBrains Mono', source-code-pro, Menlo, Monaco, Consolas, monospace;
 }
 
 @layer base {
     :root {
-        --background: 0 0% 100%;
-        --foreground: 0 0% 3.9%;
-        --card: 0 0% 100%;
-        --card-foreground: 0 0% 3.9%;
-        --popover: 0 0% 100%;
-        --popover-foreground: 0 0% 3.9%;
-        --primary: 0 0% 9%;
-        --primary-foreground: 0 0% 98%;
-        --secondary: 0 0% 96.1%;
-        --secondary-foreground: 0 0% 9%;
-        --muted: 0 0% 96.1%;
-        --muted-foreground: 0 0% 45.1%;
-        --accent: 0 0% 96.1%;
-        --accent-foreground: 0 0% 9%;
-        --destructive: 0 84.2% 60.2%;
-        --destructive-foreground: 0 0% 98%;
-        --border: 0 0% 89.8%;
-        --input: 0 0% 89.8%;
-        --ring: 0 0% 3.9%;
-        --chart-1: 12 76% 61%;
-        --chart-2: 173 58% 39%;
-        --chart-3: 197 37% 24%;
-        --chart-4: 43 74% 66%;
-        --chart-5: 27 87% 67%;
-        --radius: 0.5rem;
-    }
-    .dark {
-        --background: 0 0% 3.9%;
+        --background: 0 0% 0%;
         --foreground: 0 0% 98%;
-        --card: 0 0% 3.9%;
+        --card: 0 0% 2%;
         --card-foreground: 0 0% 98%;
-        --popover: 0 0% 3.9%;
+        --popover: 0 0% 2%;
         --popover-foreground: 0 0% 98%;
         --primary: 0 0% 98%;
         --primary-foreground: 0 0% 9%;
-        --secondary: 0 0% 14.9%;
+        --secondary: 0 0% 8%;
         --secondary-foreground: 0 0% 98%;
-        --muted: 0 0% 14.9%;
-        --muted-foreground: 0 0% 63.9%;
-        --accent: 0 0% 14.9%;
+        --muted: 0 0% 8%;
+        --muted-foreground: 0 0% 60%;
+        --accent: 0 0% 12%;
         --accent-foreground: 0 0% 98%;
-        --destructive: 0 62.8% 30.6%;
+        --destructive: 0 84.2% 60.2%;
         --destructive-foreground: 0 0% 98%;
-        --border: 0 0% 14.9%;
-        --input: 0 0% 14.9%;
+        --border: 0 0% 9%;
+        --input: 0 0% 9%;
         --ring: 0 0% 83.1%;
-        --chart-1: 220 70% 50%;
-        --chart-2: 160 60% 45%;
-        --chart-3: 30 80% 55%;
-        --chart-4: 280 65% 60%;
-        --chart-5: 340 75% 55%;
+        --radius: 12px;
     }
 }
 
@@ -82,6 +50,7 @@ code {
     }
 }
 
+/* Existing structural wrapper controls */
 @layer base {
     [data-debug-wrapper="true"] {
         display: contents !important;
@@ -114,4 +83,190 @@ code {
     }
 }
 
+/* ==========================================================================
+   🌌 SPACIOUS CYBER TERMINAL ENHANCEMENTS (POST-TAILWIND INJECTION)
+   ========================================================================== */
 
+/* --- 1. GLOBAL LAYOUT BREATHING ROOM --- */
+.dashboard-container {
+  display: flex;
+  gap: 24px;
+  padding: 24px;
+  height: 100vh;
+  box-sizing: border-box;
+  background-color: #000000;
+}
+
+.main-data-core {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  height: 100%;
+  min-width: 0;
+}
+
+/* --- 2. THEME COMPLIANT SIDEBAR & INPUT SHIELDS --- */
+.filter-sidebar-wrapper aside {
+  background-color: #050505 !important;
+  border: 1px solid #111111 !important;
+  border-radius: 16px;
+  padding: 20px;
+}
+
+/* Spaced filter row configurations */
+.filter-sidebar-wrapper label {
+  padding: 12px 14px !important;
+  margin-bottom: 8px;
+  border-radius: 8px;
+  background-color: #0d0d0d;
+  border: 1px solid #111111;
+  transition: all 0.2s ease;
+}
+
+.filter-sidebar-wrapper label:hover {
+  background-color: #141414 !important;
+  border-color: #222222;
+}
+
+/* Custom Tactical Inputs and Dropdowns */
+input[type="text"], 
+select {
+  background-color: #0d0d0d !important;
+  border: 1px solid #161616 !important;
+  color: #ffffff !important;
+  font-family: 'JetBrains Mono', monospace !important;
+  font-size: 12px !important;
+  padding: 12px 16px !important;
+  border-radius: 8px !important;
+  width: 100%;
+  margin-top: 6px;
+  transition: all 0.15s ease-in-out;
+}
+
+input[type="text"]:focus, 
+select:focus {
+  border-color: #DEFF9A !important;
+  box-shadow: 0 0 12px rgba(222, 255, 154, 0.12) !important;
+  outline: none;
+}
+
+/* --- 3. PREMIUM PROPERTY CARDS FEED --- */
+.grid-feed-container {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  gap: 24px;
+  padding-bottom: 32px;
+  overflow-y: auto;
+}
+
+.terminal-card {
+  background-color: #050505 !important;
+  border: 1px solid #111111 !important;
+  border-radius: 16px !important;
+  padding: 24px !important;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 16px;
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  position: relative;
+  overflow: hidden;
+}
+
+.terminal-card:hover, 
+.terminal-card.active-target {
+  border-color: #DEFF9A !important;
+  box-shadow: 0 12px 30px rgba(222, 255, 154, 0.05);
+  transform: translateY(-4px);
+}
+
+/* --- 4. EXPLICIT BUTTON CLASSIFICATIONS (ANTI-COLLISION FIXED VARIANT) --- */
+.btn-terminal,
+.btn-action-lime,
+button.btn-terminal,
+button.btn-action-lime {
+  background-color: #0a0a0a;
+  border: 1px solid #222222 !important;
+  color: #ffffff !important;
+  font-family: 'JetBrains Mono', monospace !important;
+  font-size: 11px !important;
+  font-weight: 700 !important;
+  text-transform: uppercase !important;
+  letter-spacing: 0.08em !important;
+  padding: 12px 20px !important;
+  border-radius: 8px !important;
+  cursor: pointer;
+  transition: all 0.15s ease-in-out;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+}
+
+/* Accent variant definitions */
+.btn-action-lime, 
+button.btn-action-lime {
+  background-color: #DEFF9A !important;
+  color: #000000 !important;
+  border: 1px solid #DEFF9A !important;
+}
+
+.btn-action-lime:hover, 
+button.btn-action-lime:hover {
+  background-color: #ffffff !important;
+  border-color: #ffffff !important;
+  box-shadow: 0 0 20px rgba(255, 255, 255, 0.15);
+}
+
+/* Checkbox Button Reset (Fixes the big black box bug inside feed cards) */
+.card-toggle-btn,
+button.card-toggle-btn {
+  background: transparent !important;
+  border: none !important;
+  padding: 0 !important;
+  margin: 0 !important;
+  width: auto !important;
+  height: auto !important;
+  display: inline-flex !important;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+
+/* --- 5. STREET VIEW IMAGE WRAPPERS --- */
+.property-image-viewport {
+  width: 100%;
+  height: 160px;
+  border-radius: 10px;
+  overflow: hidden;
+  position: relative;
+  border: 1px solid #111111;
+  background-color: #020202;
+}
+
+.property-image-viewport img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transition: transform 0.4s ease;
+}
+
+.terminal-card:hover .property-image-viewport img {
+  transform: scale(1.04);
+}
+
+/* --- 6. GEOSPATIAL MAP HOOKS --- */
+.map-viewport-wrapper {
+  height: 380px;
+  width: 100%;
+  border: 1px solid #111111;
+  border-radius: 16px;
+  overflow: hidden;
+  position: relative;
+}
+
+.map-viewport-wrapper .leaflet-container {
+  height: 100% !important;
+  width: 100% !important;
+  background-color: #000000 !important;
+}
