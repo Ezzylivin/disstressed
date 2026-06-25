@@ -1,7 +1,8 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Filter } from "lucide-react";
 import { api } from "../lib/api";
 import { toast } from "sonner";
+import { getCourthousesForState } from "../lib/courthouses";
 import "./FilterSidebar.css";
 
 const AVAILABLE_STATES = [
@@ -67,7 +68,24 @@ const CourthouseRow = ({ id, label, checked, onChange }) => (
 export const FilterSidebar = ({ filters, setFilters, stats }) => {
   const set = (k, v) => setFilters((f) => ({ ...f, [k]: v }));
   const [syncing, setSyncing] = useState(false);
-  const [selectedCourthouses, setSelectedCourthouses] = useState(["PA_PHILADELPHIA"]);
+  const [selectedCourthouses, setSelectedCourthouses] = useState([]);
+
+  // When the state filter changes, reset courthouse selection to all courthouses
+  // for the newly selected state so the user starts with a clean slate
+  const activeState = filters.state ?? null;
+  useEffect(() => {
+    if (!activeState) {
+      setSelectedCourthouses([]);
+      return;
+    }
+    const available = getCourthousesForState(activeState);
+    // Pre-select all courthouses for the chosen state
+    setSelectedCourthouses(available.map((c) => c.key));
+  }, [activeState]);
+
+  const availableCourthouses = activeState
+    ? getCourthousesForState(activeState)
+    : [];
 
   const toggleCourthouse = (id) => {
     setSelectedCourthouses((prev) =>
@@ -242,25 +260,41 @@ export const FilterSidebar = ({ filters, setFilters, stats }) => {
         <div className="sidebar-section">
           <div className="section-label">Courthouse Gateways</div>
           <div className="section-body">
-            <CourthouseRow
-              id="PA_PHILADELPHIA"
-              label="Philadelphia County Civil"
-              checked={selectedCourthouses.includes("PA_PHILADELPHIA")}
-              onChange={() => toggleCourthouse("PA_PHILADELPHIA")}
-            />
-            <CourthouseRow
-              id="TX_HOUSTON"
-              label="Harris County Foreclosure"
-              checked={selectedCourthouses.includes("TX_HOUSTON")}
-              onChange={() => toggleCourthouse("TX_HOUSTON")}
-            />
-            <button
-              onClick={handleCourthouseSync}
-              disabled={syncing || selectedCourthouses.length === 0}
-              className="btn-sync"
-            >
-              {syncing ? "// Syncing..." : "Sync Courthouses"}
-            </button>
+
+            {/* No state selected — prompt the user */}
+            {!activeState && (
+              <div className="courthouse-prompt">
+                Select a state above to see available courthouse feeds
+              </div>
+            )}
+
+            {/* State selected but no courthouses registered for it */}
+            {activeState && availableCourthouses.length === 0 && (
+              <div className="courthouse-prompt">
+                No courthouse feeds registered for {activeState} yet
+              </div>
+            )}
+
+            {/* Registered courthouses for the active state */}
+            {availableCourthouses.map((courthouse) => (
+              <CourthouseRow
+                key={courthouse.key}
+                id={courthouse.key}
+                label={courthouse.label}
+                checked={selectedCourthouses.includes(courthouse.key)}
+                onChange={() => toggleCourthouse(courthouse.key)}
+              />
+            ))}
+
+            {availableCourthouses.length > 0 && (
+              <button
+                onClick={handleCourthouseSync}
+                disabled={syncing || selectedCourthouses.length === 0}
+                className="btn-sync"
+              >
+                {syncing ? "// Syncing..." : "Sync Courthouses"}
+              </button>
+            )}
           </div>
         </div>
 
