@@ -1,29 +1,53 @@
-fastapi==0.110.1
-uvicorn==0.25.0
-boto3>=1.34.129
-requests-oauthlib>=2.0.0
-cryptography>=42.0.8
-python-dotenv>=1.0.1
-pymongo==4.5.0
-pydantic>=2.6.4
-email-validator>=2.2.0
-pyjwt>=2.10.1
-bcrypt==4.1.3
-passlib>=1.7.4
-tzdata>=2024.2
-motor==3.3.1
-pytest>=8.0.0
-black>=24.1.1
-isort>=5.13.2
-flake8>=7.0.0
-mypy>=1.8.0
-python-jose>=3.3.0
-requests>=2.31.0
-pandas>=2.2.0
-numpy>=1.26.0
-python-multipart>=0.0.9
-jq>=1.6.0
-typer>=0.9.0
-openpyxl>=3.1.2
-dnspython>=2.6.1
-beautifulsoup4
+# ── Web framework & server ────────────────────────────────────────────────────
+fastapi==0.115.6
+uvicorn[standard]==0.32.1
+
+# ── Database ──────────────────────────────────────────────────────────────────
+motor==3.6.0
+pymongo==4.10.1           # must match motor's requirement — do not downgrade
+
+# ── Data validation ───────────────────────────────────────────────────────────
+pydantic==2.10.3
+email-validator==2.2.0    # required for pydantic EmailStr
+
+# ── Auth ──────────────────────────────────────────────────────────────────────
+bcrypt==4.2.1
+PyJWT==2.10.1             # imported as `jwt` — do not also install python-jose
+
+# ── Async HTTP client ─────────────────────────────────────────────────────────
+httpx==0.28.1             # replaces requests — all outbound calls are async
+
+# ── Cryptography ──────────────────────────────────────────────────────────────
+cryptography==42.0.8
+
+# ── HTML parsing (courthouse scraper) ────────────────────────────────────────
+beautifulsoup4==4.12.3
+lxml==5.3.0               # faster parser backend for BeautifulSoup
+
+# ── Excel export ──────────────────────────────────────────────────────────────
+openpyxl==3.1.5
+
+# ── Environment & runtime ─────────────────────────────────────────────────────
+python-dotenv==1.0.1
+python-multipart==0.0.20  # required for FastAPI file/form uploads
+tzdata==2024.2            # timezone data — needed on Lambda (no system tzdata)
+dnspython==2.6.1          # required by pymongo for DNS SRV connection strings
+
+# ── TLS certificates ──────────────────────────────────────────────────────────
+certifi==2024.12.14       # explicit pin prevents stale cert failures on Lambda
+
+# ─────────────────────────────────────────────────────────────────────────────
+# REMOVED — reasons documented below
+# ─────────────────────────────────────────────────────────────────────────────
+# boto3           — AWS SDK ~35MB, not imported anywhere in codebase
+# requests        — replaced by httpx; keeping both wastes ~200KB on cold start
+# requests-oauthlib — depended on requests; unused in codebase
+# passlib         — redundant with bcrypt (which is used directly)
+# python-jose     — duplicate JWT library; codebase uses PyJWT (import jwt)
+# pandas          — ~25MB, not imported in any backend file
+# numpy           — ~25MB, not imported in any backend file
+# jq              — CLI tool, not imported in codebase
+# typer           — CLI framework, not imported in codebase
+#
+# MOVED TO requirements-dev.txt
+# pytest, black, isort, flake8, mypy
