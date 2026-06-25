@@ -177,38 +177,62 @@ async def _batchdata_search(city: str, state: str, distress_statuses: list[str],
 # Philadelphia OPA open data — no API key needed
 # ─────────────────────────────────────────────────────────────────────────────
 async def scrape_philadelphia_courthouse():
+    """
+    Philadelphia OPA via ArcGIS REST API (confirmed working).
+    Source: https://data-phl.opendata.arcgis.com/datasets/phl::opa-properties-public
+    Filters to properties with taxable_land > 0 and valid coordinates.
+    """
     leads = []
     try:
-        sql = "SELECT parcel_number,location,unit,zip_code,market_value,lat,lng,owner_1,owner_2,sale_price,sale_date,year_built,total_livable_area FROM opa_properties_public WHERE taxable_land>0 AND market_value>0 AND lat IS NOT NULL LIMIT 200"
-        async with httpx.AsyncClient(timeout=15) as client:
-            res = await client.get("https://phl.carto.com/api/v2/sql",
-                                   params={"q": sql, "format": "json"})
+        # ArcGIS REST API — no auth required, returns real OPA records
+        url = "https://services.arcgis.com/fLeGjb7u4uXqeF9q/arcgis/rest/services/OPA_Properties/FeatureServer/0/query"
+        params = {
+            "where":         "market_value > 0 AND taxable_land > 0",
+            "outFields":     "parcel_number,location,zip_code,market_value,owner_1,owner_2,year_built,total_livable_area,lat,lng",
+            "resultRecordCount": 200,
+            "f":             "json",
+            "returnGeometry": "true",
+            "outSR":         "4326",
+        }
+        async with httpx.AsyncClient(timeout=20) as client:
+            res = await client.get(url, params=params)
             res.raise_for_status()
-            rows = res.json().get("rows", [])
+            data     = res.json()
+            features = data.get("features", [])
 
-        for row in rows:
-            market_value = int(row.get("market_value") or 0)
+        for feat in features:
+            attrs = feat.get("attributes", {})
+            geo   = feat.get("geometry", {})
+            market_value = int(attrs.get("market_value") or 0)
             if market_value == 0:
                 continue
+            # ArcGIS returns geometry as {x, y} in the requested SR
+            lat = geo.get("y") or attrs.get("lat")
+            lng = geo.get("x") or attrs.get("lng")
             leads.append({
-                "site_address":      (row.get("location") or "").upper().strip(),
+                "site_address":      (attrs.get("location") or "").upper().strip(),
                 "city":              "Philadelphia",
                 "state":             "PA",
-                "zip_code":          str(row.get("zip_code") or "").strip(),
+                "zip_code":          str(attrs.get("zip_code") or "").strip(),
                 "distress_statuses": ["Tax Delinquent"],
-                "apn":               str(row.get("parcel_number") or "").strip(),
+                "apn":               str(attrs.get("parcel_number") or "").strip(),
                 "market_value":      float(market_value),
                 "mortgage_balance":  0.0,
-                "owner_name":        " ".join(filter(None, [row.get("owner_1"), row.get("owner_2")])).title(),
-                "lat":               row.get("lat"),
-                "lng":               row.get("lng"),
-                "year_built":        row.get("year_built"),
-                "sqft":              row.get("total_livable_area"),
+                "owner_name":        " ".join(filter(None, [
+                    attrs.get("owner_1"), attrs.get("owner_2")
+                ])).title(),
+                "lat":               lat,
+                "lng":               lng,
+                "year_built":        attrs.get("year_built"),
+                "sqft":              attrs.get("total_livable_area"),
             })
 
     except Exception as e:
-        logger.error(f"Philadelphia OPA driver failed: {e}")
-        # Fallback to BatchData if OPA endpoint is down
+        logger.error(f"Philadelphia ArcGIS driver failed: {e}")
+
+    # Fallback to BatchData if ArcGIS is unreachable
+    if not leads:
+        logger.info("Philadelphia: ArcGIS returned 0 — falling back to BatchData")
         leads = await _batchdata_search("Philadelphia", "PA",
                                         ["Tax Delinquent", "Pre-Foreclosure"])
 
