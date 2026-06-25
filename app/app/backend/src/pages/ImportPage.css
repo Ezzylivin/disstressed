@@ -1,0 +1,413 @@
+/* ─────────────────────────────────────────────────
+   ImportPage.css
+   Terminal skin — same vocabulary as rest of system.
+───────────────────────────────────────────────── */
+
+/* ─────────────────────────────────────────────────
+   ROOT
+───────────────────────────────────────────────── */
+.import-root {
+  display: flex;
+  height: calc(100vh - 48px);
+  background: #000000;
+  color: #ffffff;
+  font-family: 'Urbanist', sans-serif;
+  overflow: hidden;
+}
+
+/* ─────────────────────────────────────────────────
+   LEFT SIDEBAR
+───────────────────────────────────────────────── */
+.import-sidebar {
+  width: 280px;
+  flex-shrink: 0;
+  background: #050505;
+  border-right: 1px solid #1a1a1a;
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+.import-sidebar-scroll {
+  flex: 1;
+  overflow-y: auto;
+  padding: 1.25rem;
+}
+
+/* ── Section label ── */
+.import-section-label {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 9px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.15em;
+  color: #DEFF9A;
+  margin-bottom: 1.25rem;
+}
+
+/* ── Field group ── */
+.import-field-group {
+  margin-bottom: 1rem;
+}
+
+.import-label {
+  display: block;
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 8px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: #333;
+  margin-bottom: 5px;
+}
+
+.import-required {
+  color: #FF4D4D;
+  margin-left: 3px;
+}
+
+.import-hint {
+  display: block;
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 8px;
+  color: #2a2a2a;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  margin-top: 3px;
+}
+
+/* ── Inputs / selects — BUG 5 FIX: explicit font stacks, not font-mono Tailwind */
+.import-input,
+.import-select {
+  width: 100%;
+  background: #0d0d0d;
+  border: 1px solid #1e1e1e;
+  color: #888;
+  padding: 7px 10px;
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 10px;
+  outline: none;
+  border-radius: 0;
+  appearance: none;
+  -webkit-appearance: none;
+  transition: border-color 0.12s;
+}
+
+.import-input:focus,
+.import-select:focus {
+  border-color: #DEFF9A;
+  color: #fff;
+}
+
+.import-input::placeholder {
+  color: #2a2a2a;
+}
+
+/* ── Upload zone ── */
+.import-upload-zone {
+  position: relative;
+  border: 1px dashed #1e1e1e;
+  padding: 1.25rem;
+  text-align: center;
+  background: #080808;
+  cursor: pointer;
+  margin-bottom: 1rem;
+  transition: border-color 0.12s;
+}
+
+.import-upload-zone:hover {
+  border-color: #333;
+}
+
+.import-upload-input {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  cursor: pointer;
+  width: 100%;
+  height: 100%;
+}
+
+.import-upload-icon {
+  width: 22px;
+  height: 22px;
+  color: #333;
+  margin: 0 auto 8px;
+  display: block;
+}
+
+.import-upload-title {
+  display: block;
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: #555;
+  margin-bottom: 4px;
+}
+
+.import-upload-hint {
+  display: block;
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 8px;
+  color: #2a2a2a;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+/* ── Mappings section ── */
+.import-mappings {
+  border-top: 1px solid #111;
+  padding-top: 1rem;
+}
+
+/* ── Sidebar footer — execute button + progress ── */
+.import-sidebar-footer {
+  flex-shrink: 0;
+  border-top: 1px solid #1a1a1a;
+  padding: 1rem 1.25rem;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  background: #030303;
+}
+
+/* BUG 7 FIX: visual progress bar */
+.import-progress {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.import-progress-bar {
+  height: 2px;
+  background: #111;
+  width: 100%;
+  overflow: hidden;
+}
+
+.import-progress-fill {
+  height: 100%;
+  background: #DEFF9A;
+  transition: width 0.2s ease;
+}
+
+.import-progress-label {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 8px;
+  color: #333;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  text-align: right;
+}
+
+.import-run-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  width: 100%;
+  background: #DEFF9A;
+  color: #000000;
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 9px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  padding: 10px 0;
+  border: none;
+  cursor: pointer;
+  transition: background-color 0.1s;
+}
+
+.import-run-btn:hover:not(:disabled) {
+  background: #ffffff;
+}
+
+.import-run-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* ─────────────────────────────────────────────────
+   MAIN DATA PANEL
+───────────────────────────────────────────────── */
+.import-main {
+  flex: 1;
+  overflow: auto;
+  padding: 1.25rem;
+  background: #000000;
+  min-width: 0;
+}
+
+/* ── Empty state ── */
+.import-empty {
+  height: 100%;
+  border: 1px solid #111;
+  background: #030303;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 3rem;
+  text-align: center;
+  min-height: 300px;
+}
+
+.import-empty-icon {
+  width: 28px;
+  height: 28px;
+  color: #222;
+  margin-bottom: 14px;
+}
+
+.import-empty-title {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: #2a2a2a;
+  margin-bottom: 8px;
+}
+
+.import-empty-body {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 10px;
+  color: #1e1e1e;
+  line-height: 1.7;
+  max-width: 360px;
+}
+
+/* ── Preview ── */
+.import-preview {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+/* BUG 8 FIX: completion banner */
+.import-done-banner {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 9px 14px;
+  background: rgba(222, 255, 154, 0.06);
+  border: 1px solid rgba(222, 255, 154, 0.2);
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 10px;
+  font-weight: 700;
+  color: #DEFF9A;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.import-done-failures {
+  color: #FF4D4D;
+}
+
+.import-preview-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-bottom: 1px solid #1a1a1a;
+  padding-bottom: 10px;
+}
+
+.import-preview-label {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 9px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: #333;
+}
+
+.import-preview-count {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 9px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: #DEFF9A;
+  background: rgba(222, 255, 154, 0.06);
+  border: 1px solid rgba(222, 255, 154, 0.15);
+  padding: 2px 8px;
+}
+
+/* ── Table ── */
+.import-table-wrap {
+  overflow-x: auto;
+  border: 1px solid #111;
+}
+
+.import-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 10px;
+  text-align: left;
+}
+
+.import-table thead tr {
+  background: #050505;
+  border-bottom: 1px solid #1a1a1a;
+}
+
+.import-table th {
+  padding: 8px 12px;
+  font-size: 8px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: #DEFF9A;
+  border-right: 1px solid #111;
+  white-space: nowrap;
+}
+
+.import-table th:last-child {
+  border-right: none;
+}
+
+.import-table td {
+  padding: 8px 12px;
+  color: #555;
+  border-right: 1px solid #0a0a0a;
+  border-bottom: 1px solid #0a0a0a;
+  max-width: 220px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.import-table td:last-child {
+  border-right: none;
+}
+
+.import-table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+.import-table tbody tr:hover td {
+  background: #080808;
+}
+
+.import-preview-footnote {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 8px;
+  color: #222;
+  text-align: right;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  font-style: italic;
+}
+
+/* ─────────────────────────────────────────────────
+   REDUCED MOTION
+───────────────────────────────────────────────── */
+@media (prefers-reduced-motion: reduce) {
+  .import-progress-fill { transition: none; }
+  .import-run-btn       { transition: none; }
+  .import-upload-zone   { transition: none; }
+}
