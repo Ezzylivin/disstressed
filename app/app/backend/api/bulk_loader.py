@@ -1,108 +1,126 @@
 """
 bulk_loader.py — PropIntel bulk property importer
 
-Pulls real distressed properties from BatchData across all 20 target metros,
-enriches each via RentCast, and pushes to your live PropIntel backend via
-the /admin/ingest-hybrid endpoint.
+Pulls real distressed properties from BatchData across 20 target metros
+and writes directly to MongoDB Atlas — bypassing the Vercel HTTP endpoint
+entirely. This is 50-100x faster and avoids Vercel's 30s function timeout.
+
+Requirements:
+    pip install httpx motor pymongo python-dotenv
 
 Usage:
-    pip install httpx python-dotenv
-    BATCH_DATA_API_KEY=xxx RENTCAST_API_KEY=xxx \\
-    PROPINTEL_URL=https://your-app.vercel.app \\
-    INTERNAL_SYSTEM_KEY=xxx \\
-    python bulk_loader.py
+    Create a .env file with:
+        BATCH_DATA_API_KEY=xxx
+        MONGO_URL=mongodb+srv://user:pass@cluster.mongodb.net
+        DB_NAME=propintel
 
-Optional env vars:
-    TARGET_COUNT    How many total properties to load (default: 50000)
-    PER_METRO       Max per metro (default: 2500)
-    CONCURRENCY     Parallel ingest requests (default: 10)
-    DRY_RUN=1       Print what would be ingested without writing anything
+    Then run:
+        python bulk_loader.py
+
+Options (set as env vars):
+    TARGET_COUNT   Total properties to load (default: 50000)
+    PER_METRO      Max per metro (default: 2500)
+    DRY_RUN=1      Print records without writing to DB
+    CLEAR_SEED=1   Delete synthetic seed data before loading
 """
 import asyncio
 import os
 import sys
+import uuid
 import logging
-from datetime import datetime
+from datetime import datetime, timezone
 
 import httpx
 from dotenv import load_dotenv
+from motor.motor_asyncio import AsyncIOMotorClient
 
 load_dotenv()
+
 logging.basicConfig(
     level=logging.INFO,
-    format="%(asctime)s [%(levelname)s] %(message)s",
+    format="%(asctime)s  %(message)s",
     handlers=[logging.StreamHandler(sys.stdout)],
 )
 log = logging.getLogger("bulk_loader")
 
-# ── Config ────────────────────────────────────────────────────────────────────
-BATCH_KEY      = os.environ["BATCH_DATA_API_KEY"]
-RENTCAST_KEY   = os.environ.get("RENTCAST_API_KEY", "")
-PROPINTEL_URL  = os.environ.get("PROPINTEL_URL", "http://localhost:8000").rstrip("/")
-INTERNAL_KEY   = os.environ["INTERNAL_SYSTEM_KEY"]
-TARGET_COUNT   = int(os.environ.get("TARGET_COUNT", "50000"))
-PER_METRO      = int(os.environ.get("PER_METRO", "2500"))
-CONCURRENCY    = int(os.environ.get("CONCURRENCY", "10"))
-DRY_RUN        = os.environ.get("DRY_RUN", "").lower() in ("1", "true", "yes")
+# ── Required config ───────────────────────────────────────────────────────────
+BATCH_KEY  = os.environ.get("BATCH_DATA_API_KEY", "")
+MONGO_URL  = os.environ.get("MONGO_URL", "")
+DB_NAME    = os.environ.get("DB_NAME", "propintel")
 
-BATCH_URL  = "https://api.batchdata.com/api/v1/property/search"
-INGEST_URL = f"{PROPINTEL_URL}/api/admin/ingest-hybrid"
+if not BATCH_KEY:
+    sys.exit("ERROR: BATCH_DATA_API_KEY is not set. Add it to your .env file.")
+if not MONGO_URL:
+    sys.exit("ERROR: MONGO_URL is not set. Add your MongoDB Atlas connection string to .env.")
 
-INGEST_HEADERS = {
-    "X-PropIntel-Key": INTERNAL_KEY,
-    "Content-Type":    "application/json",
-}
+# ── Optional config ───────────────────────────────────────────────────────────
+TARGET_COUNT = int(os.environ.get("TARGET_COUNT", "50000"))
+PER_METRO    = int(os.environ.get("PER_METRO", "2500"))
+DRY_RUN      = os.environ.get("DRY_RUN", "").lower() in ("1", "true", "yes")
+CLEAR_SEED   = os.environ.get("CLEAR_SEED", "").lower() in ("1", "true", "yes")
+GOOGLE_KEY   = os.environ.get("GOOGLE_MAPS_API_KEY", "")
 
-# 20 metros × up to 2,500 each = 50,000 target
+BATCH_URL = "https://api.batchdata.com/api/v1/property/search"
+
+# 20 metros — covers all 18 previously-stubbed courthouses plus the two live ones
 METROS = [
-    # (city, state, distress_types)
-    ("Philadelphia",   "PA", ["Tax Delinquent", "Pre-Foreclosure"]),
-    ("Houston",        "TX", ["Tax Delinquent", "Pre-Foreclosure"]),
-    ("Pittsburgh",     "PA", ["Tax Delinquent", "Sheriff Sale"]),
-    ("Dallas",         "TX", ["Tax Delinquent", "Pre-Foreclosure"]),
-    ("San Antonio",    "TX", ["Tax Delinquent", "Pre-Foreclosure"]),
-    ("Miami",          "FL", ["Lis Pendens",    "Pre-Foreclosure"]),
-    ("Tampa",          "FL", ["Lis Pendens",    "Pre-Foreclosure"]),
-    ("Chicago",        "IL", ["Tax Delinquent", "Sheriff Sale"]),
-    ("Atlanta",        "GA", ["Tax Delinquent", "Pre-Foreclosure"]),
-    ("Phoenix",        "AZ", ["Pre-Foreclosure","Tax Delinquent"]),
-    ("Los Angeles",    "CA", ["Tax Delinquent", "Pre-Foreclosure"]),
-    ("Brooklyn",       "NY", ["Lis Pendens",    "Pre-Foreclosure"]),
-    ("Cleveland",      "OH", ["Tax Delinquent", "Sheriff Sale"]),
-    ("Detroit",        "MI", ["Tax Delinquent", "Sheriff Sale"]),
-    ("Las Vegas",      "NV", ["Pre-Foreclosure","Tax Delinquent"]),
-    ("Denver",         "CO", ["Pre-Foreclosure","Tax Delinquent"]),
-    ("Charlotte",      "NC", ["Pre-Foreclosure","Tax Delinquent"]),
-    ("Baltimore",      "MD", ["Tax Delinquent", "Pre-Foreclosure"]),
-    ("Memphis",        "TN", ["Tax Delinquent", "Pre-Foreclosure"]),
-    ("St. Louis",      "MO", ["Tax Delinquent", "Sheriff Sale"]),
+    ("Philadelphia",  "PA", ["Tax Delinquent", "Pre-Foreclosure"]),
+    ("Houston",       "TX", ["Tax Delinquent", "Pre-Foreclosure"]),
+    ("Pittsburgh",    "PA", ["Tax Delinquent", "Sheriff Sale"]),
+    ("Dallas",        "TX", ["Tax Delinquent", "Pre-Foreclosure"]),
+    ("San Antonio",   "TX", ["Tax Delinquent", "Pre-Foreclosure"]),
+    ("Miami",         "FL", ["Lis Pendens",    "Pre-Foreclosure"]),
+    ("Tampa",         "FL", ["Lis Pendens",    "Pre-Foreclosure"]),
+    ("Chicago",       "IL", ["Tax Delinquent", "Sheriff Sale"]),
+    ("Atlanta",       "GA", ["Tax Delinquent", "Pre-Foreclosure"]),
+    ("Phoenix",       "AZ", ["Pre-Foreclosure","Tax Delinquent"]),
+    ("Los Angeles",   "CA", ["Tax Delinquent", "Pre-Foreclosure"]),
+    ("Brooklyn",      "NY", ["Lis Pendens",    "Pre-Foreclosure"]),
+    ("Cleveland",     "OH", ["Tax Delinquent", "Sheriff Sale"]),
+    ("Detroit",       "MI", ["Tax Delinquent", "Sheriff Sale"]),
+    ("Las Vegas",     "NV", ["Pre-Foreclosure","Tax Delinquent"]),
+    ("Denver",        "CO", ["Pre-Foreclosure","Tax Delinquent"]),
+    ("Charlotte",     "NC", ["Pre-Foreclosure","Tax Delinquent"]),
+    ("Baltimore",     "MD", ["Tax Delinquent", "Pre-Foreclosure"]),
+    ("Memphis",       "TN", ["Tax Delinquent", "Pre-Foreclosure"]),
+    ("St. Louis",     "MO", ["Tax Delinquent", "Sheriff Sale"]),
 ]
 
 
-# ── BatchData fetch ───────────────────────────────────────────────────────────
-async def fetch_batchdata(client: httpx.AsyncClient, city: str, state: str,
-                           statuses: list[str], limit: int) -> list[dict]:
+# ── BatchData fetch — paginated ───────────────────────────────────────────────
+async def fetch_metro(client: httpx.AsyncClient, city: str, state: str,
+                       statuses: list[str], limit: int) -> list[dict]:
+    headers = {
+        "Authorization": f"Bearer {BATCH_KEY}",
+        "Content-Type":  "application/json",
+    }
     results = []
     page    = 1
-    headers = {"Authorization": f"Bearer {BATCH_KEY}", "Content-Type": "application/json"}
 
     while len(results) < limit:
         body = {
-            "city":    city,
-            "state":   state,
-            "status":  statuses,
-            "page":    page,
-            "perPage": min(100, limit - len(results)),
-            "propertyType": ["Single Family", "Multi-Family", "Duplex"],
+            "city":         city,
+            "state":        state,
+            "status":       statuses,
+            "page":         page,
+            "perPage":      min(100, limit - len(results)),
+            "propertyType": ["Single Family", "Multi-Family", "Duplex", "Townhouse"],
         }
         try:
-            res = await client.post(BATCH_URL, json=body, headers=headers)
+            res = await client.post(BATCH_URL, json=body, headers=headers, timeout=20)
+
             if res.status_code == 429:
-                log.warning("BatchData rate limit — waiting 5s")
-                await asyncio.sleep(5)
+                wait = int(res.headers.get("Retry-After", "10"))
+                log.warning(f"  Rate limited — waiting {wait}s")
+                await asyncio.sleep(wait)
                 continue
+
+            if res.status_code == 401:
+                log.error("  BATCH_DATA_API_KEY is invalid or expired")
+                return results
+
             if res.status_code != 200:
-                log.error(f"BatchData {city},{state} page {page}: HTTP {res.status_code}")
+                log.error(f"  BatchData {city}: HTTP {res.status_code} — {res.text[:150]}")
                 break
 
             data  = res.json()
@@ -111,125 +129,188 @@ async def fetch_batchdata(client: httpx.AsyncClient, city: str, state: str,
                 break
 
             results.extend(props)
-            total = data.get("results", {}).get("total", 0)
-            if len(results) >= total or len(props) < 100:
+
+            total_available = data.get("results", {}).get("total", 0)
+            log.info(f"  {city} page {page}: got {len(props)}, "
+                     f"total so far {len(results)}/{total_available}")
+
+            if len(results) >= min(limit, total_available) or len(props) < 100:
                 break
             page += 1
 
+        except httpx.TimeoutException:
+            log.warning(f"  {city} page {page}: timeout — stopping pagination")
+            break
         except Exception as e:
-            log.error(f"BatchData fetch error {city}: {e}")
+            log.error(f"  {city} fetch error: {e}")
             break
 
-    log.info(f"BatchData: {len(results)} raw records for {city}, {state}")
     return results[:limit]
 
 
-# ── Map BatchData property → ingest payload ───────────────────────────────────
-def map_property(p: dict, city: str, state: str, statuses: list[str]) -> dict | None:
-    addr_obj = p.get("address", {}) or {}
-    street   = (addr_obj.get("street") or "").strip().upper()
+# ── Map BatchData record → MongoDB document ───────────────────────────────────
+def map_to_doc(p: dict, city: str, state: str,
+               distress_statuses: list[str]) -> dict | None:
+    addr = p.get("address", {}) or {}
+    street = (addr.get("street") or "").strip().upper()
     if not street:
         return None
 
-    raw_statuses = p.get("status", []) or []
+    # Map BatchData status values to our distress vocabulary
+    raw = p.get("status", []) or []
     mapped = []
-    for s in raw_statuses:
+    for s in raw:
         sl = s.lower()
-        if "tax" in sl:           mapped.append("Tax Delinquent - 2 Years")
-        elif "lis" in sl:         mapped.append("Lis Pendens")
-        elif "default" in sl:     mapped.append("Notice of Default (NOD)")
-        elif "fore" in sl:        mapped.append("Pre-Foreclosure")
-        elif "vacant" in sl:      mapped.append("Vacant/Neglected")
-        elif "sheriff" in sl or "trustee" in sl: mapped.append("Pre-Foreclosure")
-        else:                     mapped.append("Pre-Foreclosure")
+        if "tax" in sl:                           mapped.append("Tax Delinquent - 2 Years")
+        elif "lis pendens" in sl:                 mapped.append("Lis Pendens")
+        elif "notice of default" in sl or "nod" in sl: mapped.append("Notice of Default (NOD)")
+        elif "foreclosure" in sl:                 mapped.append("Pre-Foreclosure")
+        elif "vacant" in sl:                      mapped.append("Vacant/Neglected")
+        elif "sheriff" in sl or "trustee" in sl:  mapped.append("Pre-Foreclosure")
+        elif "code" in sl:                        mapped.append("Code Violation")
+        else:                                     mapped.append("Pre-Foreclosure")
     if not mapped:
-        mapped = [statuses[0]]
+        mapped = distress_statuses[:1]
+    mapped = list(dict.fromkeys(mapped))  # deduplicate preserving order
+
+    fin = p.get("financial", {}) or {}
+    mv  = float(fin.get("estimatedValue") or fin.get("assessedValue") or 0)
+    mb  = float(fin.get("estimatedMortgageBalance") or 0)
+    eq  = round(((mv - mb) / mv) * 100) if mv > 0 else None
+
+    city_name  = addr.get("city")  or city
+    state_code = addr.get("state") or state
+    zip_code   = str(addr.get("zip") or "").strip()
+
+    # Street View image
+    if GOOGLE_KEY and street:
+        fmt = f"{street}, {city_name}, {state_code} {zip_code}".replace(" ", "+")
+        image_url = (f"https://maps.googleapis.com/maps/api/streetview"
+                     f"?size=600x400&location={fmt}&key={GOOGLE_KEY}")
+    else:
+        image_url = None
 
     return {
+        "id":                str(uuid.uuid4()),
+        "apn":               str(p.get("apn") or p.get("attomId") or "").strip(),
         "site_address":      street,
-        "city":              addr_obj.get("city") or city,
-        "state":             addr_obj.get("state") or state,
+        "city":              city_name,
+        "state":             state_code,
+        "zip_code":          zip_code,
+        "lat":               p.get("latitude"),
+        "lng":               p.get("longitude"),
+        "beds":              p.get("bedrooms"),
+        "baths":             p.get("bathrooms"),
+        "sqft":              p.get("squareFootage") or p.get("livingSquareFeet"),
+        "year_built":        p.get("yearBuilt"),
+        "property_type":     p.get("propertyType") or "Single Family",
+        "owner_name":        (p.get("ownerName") or "").title() or None,
+        "owner_is_llc":      False,
+        "owner_absentee":    p.get("absenteeOwner", False),
+        "market_value":      mv or None,
+        "mortgage_balance":  mb or None,
+        "equity":            round(mv - mb) if mv > 0 else None,
+        "equity_pct":        eq,
         "distress_statuses": mapped,
+        "primary_status":    mapped[0],
         "vacant":            any("Vacant" in s for s in mapped),
+        "estimated_rent":    None,  # populated by RentCast on demand
+        "image_url":         image_url,
+        "skip_traced":       False,
+        "skip_trace_data":   None,
+        "underwrite":        None,
+        "created_at":        datetime.now(timezone.utc).isoformat(),
+        "_source":           "batchdata_bulk",
     }
 
 
-# ── Ingest one property ───────────────────────────────────────────────────────
-async def ingest_one(client: httpx.AsyncClient, payload: dict) -> bool:
-    if DRY_RUN:
-        log.info(f"[DRY RUN] Would ingest: {payload['site_address']}, {payload['city']}, {payload['state']}")
-        return True
-    try:
-        res = await client.post(INGEST_URL, json=payload, headers=INGEST_HEADERS)
-        return res.status_code in (200, 201)
-    except Exception as e:
-        log.error(f"Ingest error {payload.get('site_address')}: {e}")
-        return False
-
-
-# ── Process one metro ─────────────────────────────────────────────────────────
-async def process_metro(city: str, state: str, statuses: list[str],
-                         semaphore: asyncio.Semaphore,
-                         client: httpx.AsyncClient) -> int:
+# ── Write one metro to MongoDB ────────────────────────────────────────────────
+async def load_metro(city: str, state: str, statuses: list[str],
+                      collection, semaphore: asyncio.Semaphore,
+                      client: httpx.AsyncClient) -> int:
     async with semaphore:
-        log.info(f"→ Starting {city}, {state}")
-        raw_props = await fetch_batchdata(client, city, state, statuses, PER_METRO)
+        log.info(f"\n→ {city}, {state} — fetching up to {PER_METRO:,} records")
+        raw = await fetch_metro(client, city, state, statuses, PER_METRO)
 
-        payloads = [p for raw in raw_props
-                    if (p := map_property(raw, city, state, statuses)) is not None]
-        log.info(f"  {city}: {len(payloads)} valid records to ingest")
-
+        docs     = [d for r in raw if (d := map_to_doc(r, city, state, statuses))]
         inserted = 0
-        tasks    = [ingest_one(client, p) for p in payloads]
+        skipped  = 0
 
-        # Process in batches of CONCURRENCY
-        for i in range(0, len(tasks), CONCURRENCY):
-            batch   = tasks[i : i + CONCURRENCY]
-            results = await asyncio.gather(*batch)
-            inserted += sum(results)
-            pct = round((i + len(batch)) / len(tasks) * 100) if tasks else 100
-            log.info(f"  {city}: {i + len(batch)}/{len(tasks)} ({pct}%) — {inserted} inserted")
+        if DRY_RUN:
+            log.info(f"  [DRY RUN] {city}: would insert {len(docs)} documents")
+            return len(docs)
 
-        log.info(f"✓ {city}, {state}: {inserted} properties ingested")
+        # Batch insert with dedup check
+        for doc in docs:
+            # Check for existing record by address or APN
+            query = {"$or": [{"site_address": doc["site_address"]}]}
+            if doc.get("apn"):
+                query["$or"].append({"apn": doc["apn"]})
+
+            if await collection.find_one(query, {"_id": 1}):
+                skipped += 1
+                continue
+
+            await collection.insert_one(doc)
+            inserted += 1
+
+            if inserted % 100 == 0:
+                log.info(f"  {city}: {inserted} inserted, {skipped} skipped (duplicates)")
+
+        log.info(f"✓ {city}, {state}: {inserted} inserted, {skipped} skipped")
         return inserted
 
 
 # ── Main ──────────────────────────────────────────────────────────────────────
 async def main():
-    log.info("=" * 60)
-    log.info(f"PropIntel Bulk Loader")
-    log.info(f"Target:      {TARGET_COUNT:,} properties")
-    log.info(f"Per metro:   {PER_METRO:,}")
-    log.info(f"Concurrency: {CONCURRENCY}")
-    log.info(f"Endpoint:    {INGEST_URL}")
-    log.info(f"Dry run:     {DRY_RUN}")
-    log.info("=" * 60)
+    mongo  = AsyncIOMotorClient(MONGO_URL)
+    db     = mongo[DB_NAME]
+    col    = db.properties
 
-    if DRY_RUN:
-        log.info("[DRY RUN MODE — no data will be written]\n")
+    log.info("=" * 65)
+    log.info("  PropIntel Bulk Loader")
+    log.info(f"  Target:    {TARGET_COUNT:,} properties across {len(METROS)} metros")
+    log.info(f"  Per metro: {PER_METRO:,}")
+    log.info(f"  Database:  {DB_NAME}")
+    log.info(f"  Dry run:   {DRY_RUN}")
+    log.info("=" * 65)
 
-    semaphore    = asyncio.Semaphore(3)  # max 3 metros fetching simultaneously
-    total_loaded = 0
-    start        = datetime.now()
+    # Optionally clear synthetic seed data first
+    if CLEAR_SEED and not DRY_RUN:
+        result = await col.delete_many({"_source": {"$exists": False}})
+        log.info(f"  Cleared {result.deleted_count} synthetic seed records")
+
+    existing_count = await col.count_documents({})
+    log.info(f"  Current DB count: {existing_count:,}")
+
+    semaphore = asyncio.Semaphore(3)  # 3 metros fetching simultaneously
+    start     = datetime.now()
 
     async with httpx.AsyncClient(timeout=30) as client:
-        metro_tasks = [
-            process_metro(city, state, statuses, semaphore, client)
+        tasks = [
+            load_metro(city, state, statuses, col, semaphore, client)
             for city, state, statuses in METROS
-            if total_loaded < TARGET_COUNT
         ]
-        results = await asyncio.gather(*metro_tasks, return_exceptions=True)
+        results = await asyncio.gather(*tasks, return_exceptions=True)
 
+    total = 0
     for i, res in enumerate(results):
+        city = METROS[i][0]
         if isinstance(res, Exception):
-            log.error(f"Metro {METROS[i][0]} failed: {res}")
+            log.error(f"  {city} failed: {res}")
         else:
-            total_loaded += res
+            total += res
 
-    elapsed = (datetime.now() - start).seconds
-    log.info("=" * 60)
-    log.info(f"COMPLETE: {total_loaded:,} properties loaded in {elapsed}s")
-    log.info("=" * 60)
+    final_count = await col.count_documents({})
+    elapsed     = round((datetime.now() - start).total_seconds())
+
+    log.info("\n" + "=" * 65)
+    log.info(f"  DONE in {elapsed}s")
+    log.info(f"  Properties inserted this run: {total:,}")
+    log.info(f"  Total in database now:        {final_count:,}")
+    log.info("=" * 65)
+
+    mongo.close()
 
 
 if __name__ == "__main__":
