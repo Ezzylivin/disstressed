@@ -18,19 +18,21 @@ export const AuthProvider = ({ children }) => {
     setLoading(false);
   }, []);
 
-  // BUG 5 FIX: wire the api.js 401 interceptor to this logout so in-memory
-  // state stays in sync when a token expires mid-session
+  // Wire a response interceptor so an expired token mid-session auto-logs out.
+  // CRITICAL: skip /auth/* endpoints — a 401 on /auth/login means wrong
+  // credentials, not an expired session. Without this guard the interceptor
+  // fires on a bad-password attempt, redirects to /login, and leaves the
+  // submit button permanently stuck on "Authenticating...".
   useEffect(() => {
     const interceptorId = api.interceptors.response.use(
       (res) => res,
       (err) => {
-        if (err.response?.status === 401) {
-          // Only auto-logout if we currently think we're logged in —
-          // avoids a logout loop on the login page itself
+        const url = err.config?.url ?? "";
+        const isAuthRoute = url.includes("/auth/");
+        if (err.response?.status === 401 && !isAuthRoute) {
           setUser((currentUser) => {
             if (currentUser) {
               localStorage.removeItem("pi_token");
-              // Navigate without a full reload so React state is properly reset
               window.location.replace("/login");
             }
             return null;
