@@ -1,0 +1,296 @@
+/* ─────────────────────────────────────────────────
+   FilterSidebar.css
+   Sidebar skin — same terminal vocabulary:
+   surfaces: #000 / #050505 / #080808 / #0d0d0d
+   borders:  #111 / #1a1a1a / #222
+   type:     IBM Plex Mono throughout (data context)
+   accents:  #DEFF9A lime · #FF4D4D red · #00A3FF blue
+───────────────────────────────────────────────── */
+
+/* ─────────────────────────────────────────────────
+   SHELL
+   No self-sizing width — fills .filter-sidebar-wrapper
+   which already sets width: 280px in DashboardPage.css
+───────────────────────────────────────────────── */
+.filter-sidebar {
+  width: 100%;
+  height: 100%;
+  background: #000000;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+/* ─────────────────────────────────────────────────
+   HEADER
+───────────────────────────────────────────────── */
+.sidebar-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 14px;
+  background: #050505;
+  border-bottom: 1px solid #1a1a1a;
+  flex-shrink: 0;
+}
+
+.sidebar-header-icon {
+  color: #DEFF9A;
+  flex-shrink: 0;
+}
+
+.sidebar-header-label {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 9px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.15em;
+  color: #DEFF9A;
+}
+
+/* ─────────────────────────────────────────────────
+   SCROLLABLE BODY
+───────────────────────────────────────────────── */
+.sidebar-scroll {
+  flex: 1;
+  overflow-y: auto;
+}
+
+/* ─────────────────────────────────────────────────
+   SECTION
+───────────────────────────────────────────────── */
+.sidebar-section {
+  border-bottom: 1px solid #111;
+}
+
+/* All section heads — consistent: no // prefix in copy,
+   just uppercase mono label. The header has the //.     */
+.section-label {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 8px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.15em;
+  color: #2a2a2a;
+  padding: 9px 14px 7px;
+  background: #030303;
+  border-bottom: 1px solid #0f0f0f;
+}
+
+.section-body {
+  padding: 10px 12px 12px;
+}
+
+/* ─────────────────────────────────────────────────
+   TOGGLE ROW
+───────────────────────────────────────────────── */
+.toggle-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 7px 14px;
+  cursor: pointer;
+  border-bottom: 1px solid #0a0a0a;
+  transition: background-color 0.1s;
+}
+
+.toggle-row:last-child {
+  border-bottom: none;
+}
+
+.toggle-row:hover {
+  background: #080808;
+}
+
+.toggle-row-left {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.toggle-label {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 10px;
+  color: #666;
+  line-height: 1;
+}
+
+.toggle-row:hover .toggle-label {
+  color: #aaa;
+}
+
+.toggle-count {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 9px;
+  color: #333;
+  background: #0a0a0a;
+  border: 1px solid #1a1a1a;
+  padding: 1px 6px;
+  line-height: 1.4;
+}
+
+/* ─────────────────────────────────────────────────
+   CHECKBOX — uniform across toggle rows + courthouse
+───────────────────────────────────────────────── */
+.toggle-checkbox {
+  width: 12px;
+  height: 12px;
+  flex-shrink: 0;
+  accent-color: #DEFF9A;
+  background: #000;
+  cursor: pointer;
+}
+
+/* ─────────────────────────────────────────────────
+   INPUTS + SELECTS
+───────────────────────────────────────────────── */
+.sidebar-input,
+.sidebar-select {
+  width: 100%;
+  background: #0d0d0d;
+  border: 1px solid #1e1e1e;
+  color: #888;
+  padding: 7px 10px;
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 10px;
+  outline: none;
+  transition: border-color 0.12s;
+  border-radius: 0; /* FIX 2: zero radius — consistent with system */
+  appearance: none;
+  -webkit-appearance: none;
+}
+
+.sidebar-input:focus,
+.sidebar-select:focus {
+  border-color: #DEFF9A;
+  color: #ccc;
+}
+
+.sidebar-input::placeholder {
+  color: #2a2a2a;
+}
+
+/* ─────────────────────────────────────────────────
+   SLIDERS
+───────────────────────────────────────────────── */
+.slider-group {
+  margin-bottom: 14px;
+}
+
+.slider-group:last-child {
+  margin-bottom: 0;
+}
+
+.slider-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  margin-bottom: 5px;
+}
+
+.slider-label {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 9px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: #333;
+}
+
+.slider-value {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 10px;
+  font-weight: 700;
+}
+
+.slider-value.lime { color: #DEFF9A; }
+.slider-value.blue { color: #00A3FF; }
+
+.sidebar-range {
+  width: 100%;
+  cursor: pointer;
+  accent-color: #DEFF9A;
+  height: 3px;
+}
+
+/* ─────────────────────────────────────────────────
+   COURTHOUSE ROWS
+   FIX 2: border-radius: 0 — no more rounded corners
+───────────────────────────────────────────────── */
+.courthouse-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 10px;
+  cursor: pointer;
+  background: #080808;
+  border: 1px solid #1a1a1a;
+  margin-bottom: 6px;
+  transition: border-color 0.12s;
+}
+
+.courthouse-row:last-of-type {
+  margin-bottom: 10px;
+}
+
+.courthouse-row:hover {
+  border-color: #333;
+}
+
+/* ─────────────────────────────────────────────────
+   COURTHOUSE SYNC BUTTON
+   FIX 3: defined locally — not relying on DashboardPage.css
+───────────────────────────────────────────────── */
+.btn-sync {
+  width: 100%;
+  background: transparent;
+  border: 1px solid #2a2a2a;
+  color: #555;
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 9px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  padding: 7px 0;
+  cursor: pointer;
+  transition: border-color 0.12s, color 0.12s;
+}
+
+.btn-sync:hover:not(:disabled) {
+  border-color: #DEFF9A;
+  color: #DEFF9A;
+}
+
+.btn-sync:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
+/* ─────────────────────────────────────────────────
+   FOOTER — reset
+───────────────────────────────────────────────── */
+.sidebar-footer {
+  border-top: 1px solid #111;
+  padding: 10px 12px;
+  background: #020202;
+  flex-shrink: 0;
+}
+
+.btn-reset {
+  width: 100%;
+  background: transparent;
+  border: 1px solid #1e1e1e;
+  color: #333;
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 9px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  padding: 7px 0;
+  cursor: pointer;
+  transition: border-color 0.12s, color 0.12s;
+}
+
+.btn-reset:hover {
+  border-color: #FF4D4D;
+  color: #FF4D4D;
+}
