@@ -1,4 +1,7 @@
+import { useState } from "react"; // <-- Fixed: Added core state hooks import
 import { Filter } from "lucide-react";
+import { api } from "../lib/api";    // tribes outbound endpoint pipelines
+import { toast } from "sonner";     // unified action popups
 
 // True Nationwide Geographic Matrix Frame
 const AVAILABLE_STATES = [
@@ -30,44 +33,24 @@ const AVAILABLE_STATES = [
   { code: "WI", name: "Wisconsin (WI)" }, { code: "WY", name: "Wyoming (WY)" }
 ];
 
-// Add this selection handler near the top of FilterSidebar.jsx:
-const [syncing, setSyncing] = useState(false);
-const [selectedCourthouses, setSelectedCourthouses] = useState(["PA_PHILADELPHIA"]);
-
-const handleLiveCourthouseSync = async () => {
-  setSyncing(true);
-  try {
-    const { data } = await api.post("/courthouse/sync", { courthouses: selectedCourthouses });
-    toast.success(`Success! Pulled ${data.inserted_records} live courthouse leads directly into database.`);
-  } catch (e) {
-    toast.error("Failed to connect to municipal courthouse servers.");
-  } finally {
-    setSyncing(false);
-  }
-};
-
-// Paste this HTML block right inside the sidebar JSX markup panel:
-<div className="border-t border-neutral-900 pt-4 px-3 mb-4">
-  <div className="text-[10px] font-mono-pi uppercase text-neutral-600 mb-2 tracking-widest">// Courthouse Gateways</div>
-  <label className="flex items-center gap-2 text-xs text-neutral-300 py-1.5 cursor-pointer">
-    <input type="checkbox" checked={selectedCourthouses.includes("PA_PHILADELPHIA")} onChange={() => {}} />
-    Philadelphia County Civil Court
-  </label>
-  <label className="flex items-center gap-2 text-xs text-neutral-300 py-1.5 cursor-pointer">
-    <input type="checkbox" checked={selectedCourthouses.includes("TX_HOUSTON")} onChange={() => {}} />
-    Harris County Foreclosure Registry
-  </label>
-  <button 
-    onClick={handleLiveCourthouseSync} 
-    disabled={syncing}
-    className="btn-action-lime w-full mt-3 text-center py-2 text-[10px]"
-  >
-    {syncing ? "Scraping Portals..." : "Sync Selected Courthouses"}
-  </button>
-</div>
-
 export const FilterSidebar = ({ filters, setFilters, stats }) => {
   const set = (k, v) => setFilters((f) => ({ ...f, [k]: v }));
+
+  // --- COURTHOUSE HOOKS & FUNCTIONS (NOW INSIDE THE COMPONENT BODY) ---
+  const [syncing, setSyncing] = useState(false);
+  const [selectedCourthouses, setSelectedCourthouses] = useState(["PA_PHILADELPHIA"]);
+
+  const handleLiveCourthouseSync = async () => {
+    setSyncing(true);
+    try {
+      const { data } = await api.post("/courthouse/sync", { courthouses: selectedCourthouses });
+      toast.success(`Success! Pulled ${data.inserted_records} live courthouse leads directly into database.`);
+    } catch (e) {
+      toast.error("Failed to connect to municipal courthouse servers.");
+    } finally {
+      setSyncing(false);
+    }
+  };
 
   const ToggleRow = ({ k, label, count }) => (
     <label 
@@ -94,7 +77,7 @@ export const FilterSidebar = ({ filters, setFilters, stats }) => {
   return (
     <aside className="w-72 border-r border-neutral-900 bg-black h-full overflow-y-auto shrink-0 flex flex-col justify-between" data-testid="filter-sidebar">
       <div>
-        {/* HEADER PANEL HEADER CONTROL */}
+        {/* HEADER PANEL CONTROL */}
         <div className="px-4 py-3 border-b border-neutral-900 flex items-center gap-2 bg-[#050505] text-[#DEFF9A]">
           <Filter className="w-4 h-4 text-[#DEFF9A]" strokeWidth={2}/>
           <span className="font-mono-pi font-bold uppercase text-xs tracking-wider">// Filter Pillars</span>
@@ -142,6 +125,44 @@ export const FilterSidebar = ({ filters, setFilters, stats }) => {
               ))}
             </select>
           </div>
+        </div>
+
+        {/* --- LIVE COURTHOUSE GATEWAY INTEGRATION PANEL --- */}
+        <div className="border-t border-neutral-900 pt-4 px-3 mb-4">
+          <div className="text-[10px] font-mono-pi uppercase text-neutral-600 mb-2 tracking-widest">// Courthouse Gateways</div>
+          <label className="flex items-center gap-2 text-xs text-neutral-300 py-1.5 cursor-pointer bg-[#0d0d0d] border border-neutral-900 p-2 rounded">
+            <input 
+              type="checkbox" 
+              className="w-3.5 h-3.5"
+              checked={selectedCourthouses.includes("PA_PHILADELPHIA")} 
+              onChange={() => {
+                setSelectedCourthouses(prev => 
+                  prev.includes("PA_PHILADELPHIA") ? prev.filter(x => x !== "PA_PHILADELPHIA") : [...prev, "PA_PHILADELPHIA"]
+                )
+              }} 
+            />
+            <span className="text-neutral-300">Philadelphia County Civil Court</span>
+          </label>
+          <label className="flex items-center gap-2 text-xs text-neutral-300 py-1.5 cursor-pointer bg-[#0d0d0d] border border-neutral-900 p-2 rounded mt-2">
+            <input 
+              type="checkbox" 
+              className="w-3.5 h-3.5"
+              checked={selectedCourthouses.includes("TX_HOUSTON")} 
+              onChange={() => {
+                setSelectedCourthouses(prev => 
+                  prev.includes("TX_HOUSTON") ? prev.filter(x => x !== "TX_HOUSTON") : [...prev, "TX_HOUSTON"]
+                )
+              }} 
+            />
+            <span className="text-neutral-300">Harris County Foreclosure Registry</span>
+          </label>
+          <button 
+            onClick={handleLiveCourthouseSync} 
+            disabled={syncing}
+            className="btn-action-lime w-full mt-3 text-center py-2 text-[10px]"
+          >
+            {syncing ? "Scraping Portals..." : "Sync Selected Courthouses"}
+          </button>
         </div>
 
         {/* COMPREHENSIVE UNDERWRITING RUNNERS */}
