@@ -178,61 +178,81 @@ async def _batchdata_search(city: str, state: str, distress_statuses: list[str],
 # ─────────────────────────────────────────────────────────────────────────────
 async def scrape_philadelphia_courthouse():
     """
-    Philadelphia OPA via ArcGIS REST API (confirmed working).
-    Source: https://data-phl.opendata.arcgis.com/datasets/phl::opa-properties-public
-    Filters to properties with taxable_land > 0 and valid coordinates.
+    Philadelphia OPA via official S3 CSV download (confirmed working, updates nightly).
+    Source: https://opendataphilly.org/datasets/philadelphia-properties-and-assessment-history/
+    Streams the CSV and returns the first 200 properties with taxable_land > 0.
+    No API key, no rate limits, no auth required.
     """
     leads = []
     try:
-        # ArcGIS REST API — no auth required, returns real OPA records
-        url = "https://services.arcgis.com/fLeGjb7u4uXqeF9q/arcgis/rest/services/OPA_Properties/FeatureServer/0/query"
-        params = {
-            "where":         "market_value > 0 AND taxable_land > 0",
-            "outFields":     "parcel_number,location,zip_code,market_value,owner_1,owner_2,year_built,total_livable_area,lat,lng",
-            "resultRecordCount": 200,
-            "f":             "json",
-            "returnGeometry": "true",
-            "outSR":         "4326",
-        }
-        async with httpx.AsyncClient(timeout=20) as client:
-            res = await client.get(url, params=params)
-            res.raise_for_status()
-            data     = res.json()
-            features = data.get("features", [])
-
-        for feat in features:
-            attrs = feat.get("attributes", {})
-            geo   = feat.get("geometry", {})
-            market_value = int(attrs.get("market_value") or 0)
-            if market_value == 0:
-                continue
-            # ArcGIS returns geometry as {x, y} in the requested SR
-            lat = geo.get("y") or attrs.get("lat")
-            lng = geo.get("x") or attrs.get("lng")
-            leads.append({
-                "site_address":      (attrs.get("location") or "").upper().strip(),
-                "city":              "Philadelphia",
-                "state":             "PA",
-                "zip_code":          str(attrs.get("zip_code") or "").strip(),
-                "distress_statuses": ["Tax Delinquent"],
-                "apn":               str(attrs.get("parcel_number") or "").strip(),
-                "market_value":      float(market_value),
-                "mortgage_balance":  0.0,
-                "owner_name":        " ".join(filter(None, [
-                    attrs.get("owner_1"), attrs.get("owner_2")
-                ])).title(),
-                "lat":               lat,
-                "lng":               lng,
-                "year_built":        attrs.get("year_built"),
-                "sqft":              attrs.get("total_livable_area"),
-            })
+        # Official Philadelphia OPA CSV — direct S3 download, updates nightly
+        url = "https://opendata-downloads.s3.amazonaws.com/opa_properties_public.csv"
+        async with httpx.AsyncClient(timeout=30, follow_redirects=True) as client:
+            # Stream the response to avoid loading the full ~150MB file
+            async with client.stream("GET", url) as res:
+                res.raise_for_status()
+                header = None
+                count  = 0
+                buffer = ""
+                async for chunk in res.aiter_text(chunk_size=65536):
+                    buffer += chunk
+                    lines   = buffer.split("
+")
+                    buffer  = lines[-1]  # keep incomplete last line
+                    for line in lines[:-1]:
+                        line = line.strip()
+                        if not line:
+                            continue
+                        if header is None:
+                            header = [h.strip().strip('"').lower() for h in line.split(",")]
+                            continue
+                        # Simple CSV parse (fields don't contain commas in this dataset)
+                        vals = [v.strip().strip('"') for v in line.split(",")]
+                        if len(vals) < len(header):
+                            continue
+                        row = dict(zip(header, vals))
+                        try:
+                            mv = int(float(row.get("market_value") or 0))
+                            tl = int(float(row.get("taxable_land") or 0))
+                        except (ValueError, TypeError):
+                            continue
+                        if mv == 0 or tl == 0:
+                            continue
+                        lat_raw = row.get("lat") or ""
+                        lng_raw = row.get("lng") or ""
+                        try:
+                            lat = float(lat_raw) if lat_raw else None
+                            lng = float(lng_raw) if lng_raw else None
+                        except ValueError:
+                            lat = lng = None
+                        leads.append({
+                            "site_address":      (row.get("location") or "").upper().strip(),
+                            "city":              "Philadelphia",
+                            "state":             "PA",
+                            "zip_code":          str(row.get("zip_code") or "").strip(),
+                            "distress_statuses": ["Tax Delinquent"],
+                            "apn":               str(row.get("parcel_number") or "").strip(),
+                            "market_value":      float(mv),
+                            "mortgage_balance":  0.0,
+                            "owner_name":        " ".join(filter(None, [
+                                row.get("owner_1"), row.get("owner_2")
+                            ])).title(),
+                            "lat":               lat,
+                            "lng":               lng,
+                            "year_built":        row.get("year_built"),
+                            "sqft":              row.get("total_livable_area"),
+                        })
+                        count += 1
+                        if count >= 200:
+                            break
+                    if count >= 200:
+                        break
 
     except Exception as e:
-        logger.error(f"Philadelphia ArcGIS driver failed: {e}")
+        logger.error(f"Philadelphia OPA CSV driver failed: {e}")
 
-    # Fallback to BatchData if ArcGIS is unreachable
     if not leads:
-        logger.info("Philadelphia: ArcGIS returned 0 — falling back to BatchData")
+        logger.info("Philadelphia CSV: 0 results — falling back to BatchData")
         leads = await _batchdata_search("Philadelphia", "PA",
                                         ["Tax Delinquent", "Pre-Foreclosure"])
 
