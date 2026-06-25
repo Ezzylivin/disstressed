@@ -23,10 +23,13 @@ try:
 except ImportError:
     pass
 
-from api.courthouse_orchestrator import execute_courthouse_sync
-from seed_data import generate_properties
-from underwriting import underwrite as run_underwrite, estimate_repair_cost
-from excel_export import build_export
+# Local module imports — using relative imports so they resolve correctly
+# whether the entrypoint is run as api/index.py (Vercel) or directly.
+# All helper files must live in the same api/ directory as index.py.
+from .courthouse_scraper import execute_courthouse_sync
+from .seed_data import generate_properties
+from .underwriting import underwrite as run_underwrite, estimate_repair_cost
+from .excel_export import build_export
 
 # ─────────────────────────────────────────────────────────────────────────────
 # ENVIRONMENT & STARTUP VALIDATION
