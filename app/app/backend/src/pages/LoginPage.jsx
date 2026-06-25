@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import { Database } from "lucide-react";
@@ -7,7 +7,10 @@ import "./LoginPage.css";
 // BUG 3 FIX: import React removed — not needed with automatic JSX transform
 
 export default function LoginPage() {
-  const { login, error } = useAuth();
+  const { login, error, clearError } = useAuth();
+
+  // Clear stale auth error when user navigates away from this page
+  useEffect(() => () => clearError(), [clearError]);
   // BUG 1 FIX: "admin..propintel.io" → "admin@propintel.io" (double-dot, missing @)
   const [email,    setEmail]    = useState("admin@propintel.io");
   const [password, setPassword] = useState("Demo2026!");
