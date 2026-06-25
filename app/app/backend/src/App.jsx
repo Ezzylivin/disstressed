@@ -6,7 +6,7 @@ import ListsPage from "@/pages/ListsPage";
 import ImportPage from "@/pages/ImportPage";
 import LoginPage from "@/pages/LoginPage";
 import RegisterPage from "@/pages/RegisterPage";
-import "@/App.css";
+import "./App.css";
 
 // Renders children when authenticated.
 // Returns null while session is still hydrating (prevents redirect flash).
