@@ -43,7 +43,9 @@ export const UnderwriteCalculator = ({ property }) => {
   }, [property.id, scope, capRate, vacancy, expRatio, compsPsf]);
 
   // Run once on mount with initial defaults
-  useEffect(() => { run(); }, [property.id]); // eslint-disable-line react-hooks/exhaustive-deps
+  // Effect dep is `run` (stable per useCallback) — fires when property or any
+  // input param changes, exactly matching the intent of the original effect.
+  useEffect(() => { run(); }, [run]);
 
   // FIX 2: safe numeric parser — returns fallback on NaN/empty
   const safeFloat = (val, fallback) => {
