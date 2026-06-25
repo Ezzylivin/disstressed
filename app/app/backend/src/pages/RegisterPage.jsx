@@ -6,10 +6,10 @@ import "./RegisterPage.css";
 
 export default function RegisterPage() {
   const { register, error } = useAuth();
-  const [email, setEmail] = useState("");
-  const [name, setName] = useState("");
+  const [name,     setName]     = useState("");
+  const [email,    setEmail]    = useState("");
   const [password, setPassword] = useState("");
-  const [loading, setLoading] = useState(false);
+  const [loading,  setLoading]  = useState(false);
   const nav = useNavigate();
 
   const submit = async (e) => {
@@ -21,44 +21,97 @@ export default function RegisterPage() {
   };
 
   return (
-    <div className="min-h-screen w-screen flex items-center justify-center bg-white p-6">
-      <div className="w-full max-w-md border border-black" data-testid="register-card">
-        <div className="p-6 border-b border-black flex items-center gap-2 bg-[#0a0a0a] text-white">
-          <Database className="w-5 h-5" strokeWidth={1.5}/>
-          <span className="font-display font-black uppercase">PropIntel</span>
+    // BUG 1 FIX: bg-white → full dark terminal background
+    <div className="register-root">
+      <div className="register-card" data-testid="register-card">
+
+        {/* Card header */}
+        <div className="register-card-header">
+          <Database className="register-logo-icon" strokeWidth={1.5} aria-hidden="true" />
+          <span className="register-logo-name">PropIntel</span>
         </div>
-        <div className="p-8">
-          <div className="label-xs mb-2">/ new analyst</div>
-          <h2 className="font-display font-black uppercase text-2xl mb-6">Create Account</h2>
-          <form onSubmit={submit} className="space-y-5" data-testid="register-form">
-            <div>
-              <label className="label-xs block mb-2">Full Name</label>
-              <input data-testid="register-name-input" type="text" value={name} onChange={(e)=>setName(e.target.value)}
-                className="w-full border-b border-black bg-transparent px-0 py-2 text-sm focus:outline-none focus:border-[#002fa7]" />
+
+        {/* Card body */}
+        <div className="register-card-body">
+          <div className="register-eyebrow">// New Analyst</div>
+          <h2 className="register-title">Create Account</h2>
+
+          <form onSubmit={submit} className="register-form" data-testid="register-form">
+
+            <div className="register-field">
+              <label className="register-label" htmlFor="reg-name">Full Name</label>
+              <input
+                id="reg-name"
+                data-testid="register-name-input"
+                type="text"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                className="register-input"
+                autoComplete="name"
+                placeholder="Optional"
+              />
             </div>
-            <div>
-              <label className="label-xs block mb-2">Email</label>
-              <input data-testid="register-email-input" type="email" required value={email} onChange={(e)=>setEmail(e.target.value)}
-                className="w-full border-b border-black bg-transparent px-0 py-2 text-sm focus:outline-none focus:border-[#002fa7]" />
+
+            <div className="register-field">
+              <label className="register-label" htmlFor="reg-email">Email</label>
+              <input
+                id="reg-email"
+                data-testid="register-email-input"
+                type="email"
+                required
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                className="register-input"
+                autoComplete="email"
+              />
             </div>
-            <div>
-              <label className="label-xs block mb-2">Password</label>
-              <input data-testid="register-password-input" type="password" required minLength={6} value={password} onChange={(e)=>setPassword(e.target.value)}
-                className="w-full border-b border-black bg-transparent px-0 py-2 text-sm focus:outline-none focus:border-[#002fa7]" />
+
+            <div className="register-field">
+              <label className="register-label" htmlFor="reg-password">Password</label>
+              <input
+                id="reg-password"
+                data-testid="register-password-input"
+                type="password"
+                required
+                minLength={6}
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                className="register-input"
+                autoComplete="new-password"
+              />
+              <span className="register-field-hint">Minimum 6 characters</span>
             </div>
-            {error && <div data-testid="register-error" className="text-xs text-red-600 border border-red-500 bg-red-50 px-3 py-2">{error}</div>}
-            <button data-testid="register-submit-btn" type="submit" disabled={loading}
-              className="w-full bg-black text-white py-3 text-xs font-bold uppercase tracking-[0.15em] hover:bg-neutral-800 disabled:opacity-50">
-              {loading ? "Creating..." : "Create Account"}
+
+            {/* BUG 3 FIX: error uses #FF4D4D, not text-red-600/bg-red-50 */}
+            {error && (
+              <div data-testid="register-error" className="register-error">
+                {error}
+              </div>
+            )}
+
+            <button
+              data-testid="register-submit-btn"
+              type="submit"
+              disabled={loading}
+              className="register-submit"
+            >
+              {loading ? "Creating Account..." : "Create Account"}
             </button>
           </form>
-          <div className="mt-6 pt-4 border-t border-neutral-300 text-xs">
-            <span className="text-neutral-500">Have an account?</span>{" "}
-            <Link to="/login" data-testid="goto-login-link" className="font-bold uppercase tracking-[0.1em] border-b border-black">Sign in</Link>
+
+          {/* BUG 4 FIX: border-neutral-300 / text-neutral-500 → system tokens */}
+          <div className="register-login-row">
+            <span className="register-login-prompt">Have an account?</span>
+            <Link
+              to="/login"
+              data-testid="goto-login-link"
+              className="register-login-link"
+            >
+              Sign in
+            </Link>
           </div>
         </div>
       </div>
     </div>
   );
 }
-
