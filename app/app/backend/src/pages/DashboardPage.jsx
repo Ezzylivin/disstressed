@@ -154,13 +154,15 @@ export default function DashboardPage() {
           </div>
 
           {/* GEOSPATIAL SPATIAL GRID LAYER */}
-          <div className="map-viewport-wrapper">
-            <PropertyMap 
-              properties={properties} 
-              selectedId={selectedId} 
-              onSelect={(id) => setSelectedId(id)} 
-            />
-          </div>
+          {selectedId && (
+            <div className="map-viewport-wrapper">
+              <PropertyMap 
+                properties={properties} 
+                selectedId={selectedId} 
+                onSelect={(id) => setSelectedId(id)} 
+              />
+            </div>
+          )}
 
           {/* CENTRAL MASTER FEED MATRIX */}
           <div className="grid-feed-container">
