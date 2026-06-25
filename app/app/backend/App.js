@@ -1,58 +1,44 @@
-import { useEffect } from "react";
+import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+import { AuthProvider, useAuth } from "@/context/AuthContext";
+import DashboardPage from "@/pages/DashboardPage";
+import PropertyDetailPage from "@/pages/PropertyDetailPage";
+import ListsPage from "@/pages/ListsPage";
+import ImportPage from "@/pages/ImportPage";
+import LoginPage from "@/pages/LoginPage";
 import "@/App.css";
-import { BrowserRouter, Routes, Route } from "react-router-dom";
-import axios from "axios";
-import { HOME } from "@/constants/testIds";
 
-const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
-const API = `${BACKEND_URL}/api`;
-
-const Home = () => {
-  const helloWorldApi = async () => {
-    try {
-      const response = await axios.get(`${API}/`);
-      console.log(response.data.message);
-    } catch (e) {
-      console.error(e, `errored out requesting / api`);
-    }
-  };
-
-  useEffect(() => {
-    helloWorldApi();
-  }, []);
-
-  return (
-    <div>
-      <header className="App-header">
-        <a
-          data-testid={HOME.emergentLink}
-          className="App-link"
-          href="https://emergent.sh"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <img src="https://avatars.githubusercontent.com/in/1201222?s=120&u=2686cf91179bbafbc7a71bfbc43004cf9ae1acea&v=4" />
-        </a>
-        <p className="mt-5">Building something incredible ~!</p>
-      </header>
-    </div>
-  );
+// Wraps any route that requires a valid session.
+// Redirects to /login if the user is not authenticated.
+const Protected = ({ children }) => {
+  const { user, loading } = useAuth();
+  if (loading) return null; // AuthContext is still hydrating from localStorage
+  if (!user) return <Navigate to="/login" replace />;
+  return children;
 };
 
 function App() {
   return (
-    <div className="App">
+    <AuthProvider>
       <BrowserRouter>
         <Routes>
-          <Route path="/" element={<Home />}>
-            <Route index element={<Home />} />
-          </Route>
+          {/* Public */}
+          <Route path="/login" element={<LoginPage />} />
+
+          {/* Protected */}
+          <Route path="/dashboard" element={<Protected><DashboardPage /></Protected>} />
+          <Route path="/property/:id" element={<Protected><PropertyDetailPage /></Protected>} />
+          <Route path="/lists" element={<Protected><ListsPage /></Protected>} />
+          <Route path="/import" element={<Protected><ImportPage /></Protected>} />
+
+          {/* Default: redirect root to dashboard */}
+          <Route path="/" element={<Navigate to="/dashboard" replace />} />
+
+          {/* 404 fallback */}
+          <Route path="*" element={<Navigate to="/dashboard" replace />} />
         </Routes>
       </BrowserRouter>
-    </div>
+    </AuthProvider>
   );
 }
 
 export default App;
-
-
