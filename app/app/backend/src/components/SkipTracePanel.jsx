@@ -1,112 +1,168 @@
 import { useState } from "react";
 import { api } from "../lib/api";
+import { toast } from "sonner";
 import { Radio, Phone, Mail, Users } from "lucide-react";
+import "./SkipTracePanel.css";
 
 export const SkipTracePanel = ({ property, onUpdate }) => {
   const [loading, setLoading] = useState(false);
   const skip = property.skip_trace_data;
 
   const run = async () => {
+    if (loading) return;
     setLoading(true);
     try {
       const { data } = await api.post(`/properties/${property.id}/skip-trace`);
-      onUpdate({ ...property, skip_traced: true, skip_trace_data: data });
-    } finally { setLoading(false); }
+      // FIX 3: optional chaining — onUpdate may not be passed
+      onUpdate?.({ ...property, skip_traced: true, skip_trace_data: data });
+      toast.success("Identity profile resolved");
+    } catch {
+      // FIX 2: catch was missing — errors were silently swallowed
+      toast.error("Skip trace failed or timed out");
+    } finally {
+      setLoading(false);
+    }
   };
 
+  /* ── EMPTY STATE ─────────────────────────────────────────────────────── */
   if (!skip) {
     return (
-      <div className="terminal-panel p-5" data-testid="skip-trace-empty">
-        <div className="flex items-center gap-2 mb-3">
-          <Radio className="w-4 h-4 text-[#39ff14]" strokeWidth={1.5}/>
-          <span className="font-display font-bold uppercase text-xs tracking-wide">Skip Trace</span>
+      <div className="stp-shell" data-testid="skip-trace-empty">
+        <div className="stp-empty-header">
+          <Radio className="stp-icon" strokeWidth={1.5} aria-hidden="true" />
+          <span className="stp-title">Skip Trace</span>
         </div>
-        <p className="text-xs text-neutral-400 mb-4 leading-relaxed">
-          Query the Endato/EnformionGO endpoint to retrieve verified mobile lines, landlines, emails and known relatives for this owner of record.
+        <p className="stp-empty-body">
+          Query the Endato / EnformionGO endpoint to retrieve verified mobile
+          lines, landlines, emails, and known relatives for this owner of record.
         </p>
-        <button data-testid="run-skip-trace-btn" onClick={run} disabled={loading}
-          className="w-full bg-[#39ff14] text-black hover:bg-[#2bd80f] py-3 text-xs font-bold uppercase tracking-[0.15em] font-mono-pi disabled:opacity-50">
-          {loading ? "Querying API..." : "▶ Run Skip Trace"}
+        <button
+          data-testid="run-skip-trace-btn"
+          onClick={run}
+          disabled={loading}
+          className="stp-run-btn"
+        >
+          {/* FIX 1: #DEFF9A lime — not #39ff14 */}
+          <Radio
+            className={`w-3.5 h-3.5 ${loading ? "stp-pulse" : ""}`}
+            strokeWidth={1.5}
+            aria-hidden="true"
+          />
+          {loading ? "Querying Network..." : "Execute Skip Trace"}
         </button>
       </div>
     );
   }
 
+  /* ── RESULTS ─────────────────────────────────────────────────────────── */
   return (
-    <div className="terminal-panel p-0" data-testid="skip-trace-results">
-      <div className="px-4 py-3 border-b border-neutral-800 flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <Radio className="w-4 h-4 text-[#39ff14] animate-pulse" strokeWidth={1.5}/>
-          <span className="font-display font-bold uppercase text-xs tracking-wide">Skip Trace · Connected</span>
+    <div className="stp-shell" data-testid="skip-trace-results">
+
+      {/* Header */}
+      <div className="stp-results-header">
+        <div className="stp-results-header-left">
+          {/* FIX 4: no animate-pulse on resolved data */}
+          <Radio className="stp-icon" strokeWidth={1.5} aria-hidden="true" />
+          <span className="stp-title">Skip Trace · Connected</span>
         </div>
-        <span className="label-xs text-neutral-500">{skip.provider?.split('(')[0]}</span>
+        {/* FIX 5: .trim() on provider string */}
+        <span className="stp-provider">
+          {skip.provider?.split("(")[0].trim() ?? "—"}
+        </span>
       </div>
 
-      <div className="divide-y divide-neutral-800">
-        <div className="px-4 py-3">
-          <div className="label-xs text-neutral-500 mb-1">Owner of Record</div>
-          <div className="text-sm font-semibold font-mono-pi">{skip.owner_name}</div>
-          <div className="text-[11px] text-neutral-400 mt-1">{skip.mailing_address}</div>
-        </div>
+      {/* Owner of record */}
+      <div className="stp-section">
+        <div className="stp-section-label">Owner of Record</div>
+        <div className="stp-owner-name">{skip.owner_name}</div>
+        {skip.mailing_address && (
+          <div className="stp-owner-address">{skip.mailing_address}</div>
+        )}
+      </div>
 
-        <div className="px-4 py-3">
-          <div className="flex items-center gap-2 label-xs text-neutral-500 mb-2">
-            <Phone className="w-3 h-3" strokeWidth={1.5}/> Mobile Lines ({skip.mobile_lines?.length || 0})
-          </div>
-          {skip.mobile_lines?.length === 0 && <div className="text-[11px] text-neutral-500">— None found</div>}
-          {skip.mobile_lines?.map((m, i) => (
-            <div key={i} className="flex items-center justify-between py-1.5 border-b border-neutral-800 last:border-0" data-testid={`mobile-line-${i}`}>
-              <div>
-                <div className="neon text-base font-semibold">{m.number}</div>
-                <div className="text-[10px] text-neutral-500 uppercase tracking-wider">{m.carrier} · {m.confidence}</div>
+      {/* Mobile lines */}
+      <div className="stp-section">
+        <div className="stp-section-label-row">
+          <Phone className="w-3 h-3" strokeWidth={1.5} aria-hidden="true" />
+          Mobile Lines ({skip.mobile_lines?.length ?? 0})
+        </div>
+        {!skip.mobile_lines?.length && (
+          <div className="stp-none">— None found</div>
+        )}
+        {skip.mobile_lines?.map((m, i) => (
+          <div
+            key={i}
+            className="stp-phone-row"
+            data-testid={`mobile-line-${i}`}
+          >
+            <div>
+              {/* FIX 6: .neon class replaced — was undefined */}
+              <div className="stp-phone-number">{m.number}</div>
+              <div className="stp-phone-meta">
+                {m.carrier} · {m.confidence}
               </div>
-              <span className="text-[9px] font-bold px-1.5 py-0.5 bg-[#39ff14] text-black uppercase">{m.type}</span>
+            </div>
+            {/* FIX 1: #DEFF9A lime badge — not #39ff14 */}
+            <span className="stp-type-badge">{m.type}</span>
+          </div>
+        ))}
+      </div>
+
+      {/* Landlines */}
+      {skip.landlines?.length > 0 && (
+        <div className="stp-section">
+          <div className="stp-section-label-row">
+            <Phone className="w-3 h-3" strokeWidth={1.5} aria-hidden="true" />
+            Landlines
+          </div>
+          {skip.landlines.map((l, i) => (
+            <div key={i} className="stp-phone-row">
+              <div>
+                <div className="stp-phone-number muted">{l.number}</div>
+                <div className="stp-phone-meta">{l.carrier}</div>
+              </div>
+              <span className="stp-land-badge">Land</span>
             </div>
           ))}
         </div>
+      )}
 
-        {skip.landlines?.length > 0 && (
-          <div className="px-4 py-3">
-            <div className="flex items-center gap-2 label-xs text-neutral-500 mb-2">
-              <Phone className="w-3 h-3" strokeWidth={1.5}/> Landlines
+      {/* Emails */}
+      {(skip.emails?.length > 0) && (
+        <div className="stp-section">
+          <div className="stp-section-label-row">
+            <Mail className="w-3 h-3" strokeWidth={1.5} aria-hidden="true" />
+            Emails
+          </div>
+          {skip.emails.map((e, i) => (
+            <div
+              key={i}
+              className="stp-email"
+              data-testid={`email-${i}`}
+            >
+              {e}
             </div>
-            {skip.landlines.map((l, i) => (
-              <div key={i} className="flex items-center justify-between py-1.5">
-                <div>
-                  <div className="font-mono-pi text-sm text-neutral-300">{l.number}</div>
-                  <div className="text-[10px] text-neutral-500 uppercase tracking-wider">{l.carrier}</div>
-                </div>
-                <span className="text-[9px] font-bold px-1.5 py-0.5 border border-neutral-700 text-neutral-400 uppercase">LAND</span>
-              </div>
+          ))}
+        </div>
+      )}
+
+      {/* Known relatives */}
+      {skip.relatives?.length > 0 && (
+        <div className="stp-section">
+          <div className="stp-section-label-row">
+            <Users className="w-3 h-3" strokeWidth={1.5} aria-hidden="true" />
+            Known Relatives
+          </div>
+          <div className="stp-relatives">
+            {skip.relatives.map((r, i) => (
+              <span key={i} className="stp-relative-tag">{r}</span>
             ))}
           </div>
-        )}
-
-        <div className="px-4 py-3">
-          <div className="flex items-center gap-2 label-xs text-neutral-500 mb-2">
-            <Mail className="w-3 h-3" strokeWidth={1.5}/> Emails
-          </div>
-          {skip.emails?.map((e, i) => (
-            <div key={i} className="neon text-sm font-mono-pi py-1" data-testid={`email-${i}`}>{e}</div>
-          ))}
         </div>
+      )}
 
-        {skip.relatives?.length > 0 && (
-          <div className="px-4 py-3">
-            <div className="flex items-center gap-2 label-xs text-neutral-500 mb-2">
-              <Users className="w-3 h-3" strokeWidth={1.5}/> Known Relatives
-            </div>
-            <div className="flex flex-wrap gap-1.5">
-              {skip.relatives.map((r, i) => (
-                <span key={i} className="text-[11px] border border-neutral-700 px-2 py-0.5 font-mono-pi text-neutral-300">{r}</span>
-              ))}
-            </div>
-          </div>
-        )}
-      </div>
     </div>
   );
 };
 
 export default SkipTracePanel;
-
